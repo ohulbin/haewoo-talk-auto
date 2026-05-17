@@ -89,7 +89,7 @@ cron.schedule('* * * * *', async () => {
 // 3. 네이버 톡톡 API 통신 함수
 async function sendTalkMessage(task) {
     const url = 'https://gw.talk.naver.com/gateway/v1/bot/message';
-    const token = '여기에_실제_네이버_토큰_입력'; // 나중에 실제 토큰으로 교체
+    const token = 'iJaGlLZJTC2Fj8iLTRSc'; // 실제 토큰
 
     const messageText = `[합정점 무인 수령 및 반납 안내]
 
@@ -123,8 +123,7 @@ async function sendTalkMessage(task) {
 ☎️ 비상 연락처 : 010-4607-0732`;
 
     try {
-        /*
-        [실제 통신을 위한 코드 - 현재는 테스트를 위해 주석 처리]
+        //[실제 통신을 위한 코드 - 현재는 테스트를 위해 주석 처리]
         const response = await axios.post(url, {
             event: "send",
             user: task.talkId,
@@ -135,12 +134,13 @@ async function sendTalkMessage(task) {
                 'Content-Type': 'application/json;charset=UTF-8'
             }
         });
+        console.log(`\n--- 💌 네이버 톡톡 발송 시뮬레이션 ---\n${messageText}\n-----------------------------------\n`);
         return response.data.success;
-        */
+        
         
         // 현재는 실제 API 토큰이 없으므로, 100% 성공한다고 가정하고 콘솔에 내용만 띄웁니다.
-        console.log(`\n--- 💌 네이버 톡톡 발송 시뮬레이션 ---\n${messageText}\n-----------------------------------\n`);
-        return true; 
+        //console.log(`\n--- 💌 네이버 톡톡 발송 시뮬레이션 ---\n${messageText}\n-----------------------------------\n`);
+        //return true; 
 
     } catch (error) {
         console.error('API 발송 에러:', error.message);

@@ -1,151 +1,163 @@
-import React, { useState } from 'react';
+// admin-web/src/App.jsx
+import React, { useState, useEffect } from 'react';
+import './App.css';
 
 function App() {
   const [reservedList, setReservedList] = useState([]);
+  const [stats, setStats] = useState({ total: 0, ready: 0, scheduled: 0 });
 
-  // 1. JSON 파일 업로드 및 파싱
+  // JSON 파싱 및 데이터 정제
   const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
     const fileReader = new FileReader();
-    fileReader.readAsText(e.target.files[0], "UTF-8");
+    fileReader.readAsText(file, "UTF-8");
     fileReader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target.result);
-        processReservedData(parsed.lockers || {});
+        const lockers = parsed.lockers || {};
+        const uniqueTargets = {};
+
+        Object.entries(lockers).forEach(([lockerNum, items]) => {
+          items.forEach((item) => {
+            if (item.status === 'reserved') {
+              const key = `${item.name}_${item.contact}_${item.startDate}_${item.startTime}`;
+              if (!uniqueTargets[key]) {
+                uniqueTargets[key] = {
+                  id: item.id,
+                  name: item.name,
+                  contact: item.contact,
+                  startDate: item.startDate,
+                  startTime: item.startTime,
+                  lockerNum: lockerNum,
+                  pw: item.pw,
+                  talkId: '',
+                  status: 'READY'
+                };
+              }
+            }
+          });
+        });
+
+        const list = Object.values(uniqueTargets);
+        setReservedList(list);
+        updateStats(list);
       } catch (error) {
-        alert("올바른 JSON 파일이 아닙니다.");
+        alert("올바른 JSON 파일 형식이 아닙니다.");
       }
     };
   };
 
-  // 2. 예약자 필터링 및 중복 제거
-  const processReservedData = (lockers) => {
-    const uniqueTargets = {};
-
-    Object.entries(lockers).forEach(([lockerNum, items]) => {
-      items.forEach((item) => {
-        if (item.status === 'reserved') {
-          const key = `${item.name}_${item.contact}_${item.startDate}_${item.startTime}`;
-          if (!uniqueTargets[key]) {
-            uniqueTargets[key] = {
-              id: item.id,
-              name: item.name,
-              contact: item.contact,
-              startDate: item.startDate,
-              startTime: item.startTime,
-              lockerNum: lockerNum,
-              pw: item.pw,
-              talkId: '', // 톡톡 ID 입력 칸
-              status: '대기 중'
-            };
-          }
-        }
-      });
+  const updateStats = (list) => {
+    setStats({
+      total: list.length,
+      ready: list.filter(i => i.status === 'READY').length,
+      scheduled: list.filter(i => i.status === 'SCHEDULED').length
     });
-    setReservedList(Object.values(uniqueTargets));
   };
 
-  // 3. 톡톡 ID 수동 입력 처리
-  const handleTalkIdChange = (index, value) => {
-    const updated = [...reservedList];
-    updated[index].talkId = value;
-    setReservedList(updated);
+  const handleIdChange = (id, val) => {
+    const newList = reservedList.map(item => 
+      item.id === id ? { ...item, talkId: val } : item
+    );
+    setReservedList(newList);
   };
 
-  // 4. 백엔드 서버로 발송 스케줄 등록 요청
-  const handleRegisterScheduler = async (user, index) => {
-    if (!user.talkId) {
-      return alert('네이버 톡톡 고유 ID를 먼저 입력해주세요!');
-    }
+  const registerTask = async (user) => {
+    if (!user.talkId) return alert('톡톡 고유 ID를 입력해주세요.');
 
     try {
-      // 포트 5000번에서 돌고 있는 우리 백엔드 서버로 전송
-      const response = await fetch('http://localhost:5000/api/scheduler/register', {
+      // Render 배포 후에는 본인의 backend URL로 변경 필요
+      const response = await fetch('https://haewoo-talk-admin.onrender.com', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user)
       });
 
       if (response.ok) {
-        alert(`${user.name}님 스케줄 등록 완료!`);
-        const updated = [...reservedList];
-        updated[index].status = '스케줄 등록됨';
-        setReservedList(updated);
-      } else {
-        alert('서버 등록에 실패했습니다.');
+        const newList = reservedList.map(item => 
+          item.id === user.id ? { ...item, status: 'SCHEDULED' } : item
+        );
+        setReservedList(newList);
+        updateStats(newList);
+        alert(`${user.name}님 발송 예약이 완료되었습니다.`);
       }
-    } catch (error) {
-      alert('서버와 연결할 수 없습니다. 백엔드 서버가 켜져 있는지 확인해주세요.');
+    } catch (err) {
+      alert('서버 연결 실패. 백엔드가 실행 중인지 확인하세요.');
     }
   };
 
   return (
-    <div style={{ padding: '30px', fontFamily: 'sans-serif' }}>
-      <h2>📦 무인 보관함 톡톡 자동 발송 시스템</h2>
-      <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-        <p>1. 대표님 프로그램에서 추출한 <b>JSON 파일</b>을 업로드해주세요.</p>
-        <input type="file" accept=".json" onChange={handleFileUpload} />
+    <div className="container">
+      <header>
+        <h1>HAEWOO <span style={{color:'white'}}>TALK-AUTO</span></h1>
+        <div className="status-badge status-scheduled">Server Online</div>
+      </header>
+
+      <section className="upload-section">
+        <label className="upload-label">
+          <input type="file" accept=".json" onChange={handleFileUpload} />
+          <i className="fa-solid fa-file-circle-plus"></i>
+          <p>클릭하여 <b>JSON 백업 파일</b>을 업로드하세요</p>
+          <span style={{fontSize:'0.8rem', color:'var(--text-dim)'}}>대표님 프로그램에서 추출한 파일을 넣으시면 됩니다.</span>
+        </label>
+      </section>
+
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="label">전체 예약</div>
+          <div className="value">{stats.total}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">ID 미입력</div>
+          <div className="value" style={{color:'var(--warning)'}}>{stats.ready}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">발송 예약됨</div>
+          <div className="value" style={{color:'var(--success)'}}>{stats.scheduled}</div>
+        </div>
       </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-        <thead>
-          <tr style={{ backgroundColor: '#e9ecef' }}>
-            <th style={thStyle}>보관함</th>
-            <th style={thStyle}>고객명</th>
-            <th style={thStyle}>연락처</th>
-            <th style={thStyle}>예약 일시</th>
-            <th style={thStyle}>비밀번호</th>
-            <th style={thStyle}>💬 네이버 톡톡 ID</th>
-            <th style={thStyle}>상태</th>
-            <th style={thStyle}>액션</th>
-          </tr>
-        </thead>
-        <tbody>
-          {reservedList.length === 0 ? (
-            <tr>
-              <td colSpan="8" style={{ padding: '20px' }}>대기 중인 예약자가 없습니다.</td>
-            </tr>
-          ) : (
-            reservedList.map((user, index) => (
-              <tr key={user.id} style={{ borderBottom: '1px solid #ddd' }}>
-                <td style={tdStyle}>{user.lockerNum}번</td>
-                <td style={tdStyle}><b>{user.name}</b></td>
-                <td style={tdStyle}>{user.contact}</td>
-                <td style={tdStyle}>{user.startDate}<br/>{user.startTime}</td>
-                <td style={tdStyle}><span style={{color: 'red', fontWeight: 'bold'}}>{user.pw}</span></td>
-                <td style={tdStyle}>
-                  <input 
-                    type="text" 
-                    placeholder="W_1234abcd..." 
-                    value={user.talkId} 
-                    onChange={(e) => handleTalkIdChange(index, e.target.value)}
-                    style={{ padding: '5px', width: '90%' }}
-                  />
-                </td>
-                <td style={tdStyle}>
-                  <span style={{ 
-                    color: user.status === '스케줄 등록됨' ? 'green' : 'gray',
-                    fontWeight: 'bold' 
-                  }}>{user.status}</span>
-                </td>
-                <td style={tdStyle}>
-                  <button 
-                    onClick={() => handleRegisterScheduler(user, index)}
-                    style={{ padding: '8px 12px', cursor: 'pointer', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
-                  >
-                    스케줄 등록
-                  </button>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+      <div className="list-header">
+        <h3>예약자 관리 리스트</h3>
+        <span style={{color:'var(--text-dim)', fontSize:'0.9rem'}}>총 {reservedList.length}명</span>
+      </div>
+
+      <div className="list-container">
+        {reservedList.map((user) => (
+          <div className="customer-card" key={user.id}>
+            <div className="locker-badge">{user.lockerNum}번함</div>
+            <div className="info-group">
+              <div className="name">{user.name}</div>
+              <div className="time">{user.startDate} {user.startTime}</div>
+            </div>
+            <div className="input-group">
+              <input 
+                type="text" 
+                placeholder="톡톡 ID 입력 (W_...)" 
+                value={user.talkId}
+                disabled={user.status === 'SCHEDULED'}
+                onChange={(e) => handleIdChange(user.id, e.target.value)}
+              />
+            </div>
+            <div className="status-group">
+              <div className={`status-badge ${user.status === 'READY' ? 'status-ready' : 'status-scheduled'}`}>
+                {user.status === 'READY' ? '대기 중' : '예약 완료'}
+              </div>
+            </div>
+            <button 
+              className="btn-submit"
+              disabled={user.status === 'SCHEDULED'}
+              onClick={() => registerTask(user)}
+            >
+              {user.status === 'READY' ? '발송 예약' : '완료'}
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
-
-// 테이블 스타일용 객체
-const thStyle = { padding: '12px', border: '1px solid #ddd' };
-const tdStyle = { padding: '12px', border: '1px solid #ddd' };
 
 export default App;

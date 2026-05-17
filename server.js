@@ -153,11 +153,11 @@ app.post('/webhook', async (req, res) => {
 });
 
 // ==========================================
-// 4. 네이버 발송 (대문자 I 오타 교정 완료!)
+// 4. 네이버 발송
 // ==========================================
 async function sendTalkMessage(task) {
     const url = 'https://gw.talk.naver.com/chatbot/v1/event';
-    const token = 'iJaGILZJTC2Fj8iLTRSc'; // 소문자 l을 대문자 I로 교체했습니다!
+    const token = 'iJaGlLZJTC2Fj8iLTRSc';
 
     const messageText = `[합정점 무인 수령 및 반납 안내]
 

@@ -129,7 +129,7 @@ async function sendTalkMessage(task) {
             textContent: { text: messageText }
         }, {
             headers: {
-                'Authorization': `Bearer ${token}`,
+                'Authorization': token,
                 'Content-Type': 'application/json;charset=UTF-8'
             }
         });

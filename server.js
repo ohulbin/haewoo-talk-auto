@@ -210,25 +210,45 @@ async function sendTalkMessage(task) {
 }
 
 // ==========================================
-// 5. 스케줄러
+// 5. 스케줄러 메인 루프 (1분 주기 감시 - 타임존 완벽 보정판)
 // ==========================================
 async function checkQueue() {
     const now = new Date();
-    try {
-        const activeTasks = await Reservation.find({ status: 'SCHEDULED' });
-        for (let task of activeTasks) {
-            const sendTime = new Date(task.reservationTime);
-            sendTime.setHours(sendTime.getHours() - 1); 
+    
+    // 한국 시간(KST) 출력을 위한 디버깅 로그 (스케줄러가 살아있는지 눈으로 확인용)
+    const kstString = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+    console.log(`[⏳ 스케줄러 가동] 한국시간 기준: ${kstString} | 큐 체크 중...`);
 
-            if (now >= sendTime) {
+    try {
+        // 오직 발송 대기(SCHEDULED) 상태인 예약 데이터만 추출
+        const activeTasks = await Reservation.find({ status: 'SCHEDULED' });
+
+        for (let task of activeTasks) {
+            const reservationTime = new Date(task.reservationTime);
+            
+            // 💡 핵심 마법: [현재 서버 시간]에 정확히 1시간(60분)을 더한 가상의 시간을 만듭니다.
+            const targetTime = new Date(now.getTime() + (60 * 60 * 1000));
+
+            // 스케줄러는 1분마다 돌기 때문에 초 단위 오차가 생길 수 있습니다.
+            // 따라서 가상 시간(현재+1시간)과 고객의 예약 시간 차이가 '5분 이내'인지 검사합니다.
+            const timeDifference = Math.abs(reservationTime - targetTime);
+            const fiveMinutesInMs = 5 * 60 * 1000;
+
+            if (timeDifference <= fiveMinutesInMs) {
+                console.log(`🎯 [타깃 매칭] ${task.name}님의 예약시간(${reservationTime.toLocaleString('ko-KR', {timeZone: 'Asia/Seoul'})})이 현재 시간의 1시간 전 영역에 포착되었습니다!`);
+                
                 const isSent = await sendTalkMessage(task);
                 task.status = isSent ? 'SENT' : 'FAILED';
                 await task.save();
-                console.log(`[스케줄러 결과] ${task.name}님: ${task.status}`);
+                
+                console.log(`[스케줄러 결과] ${task.name}님 알림톡 전송 상태 ➡️ ${task.status}`);
             }
         }
-    } catch (error) {}
+    } catch (error) {
+        console.error('스케줄러 내부 에러:', error.message);
+    }
 }
+// 1분(60,000ms)마다 백엔드가 자체적으로 이 함수를 실행함
 setInterval(checkQueue, 60000);
 
 app.listen(process.env.PORT || 5000, () => console.log(`🚀 백엔드 기동 완료`));

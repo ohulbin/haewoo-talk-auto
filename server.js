@@ -16,14 +16,14 @@ mongoose.connect(MONGO_URI)
     .catch(err => console.error('❌ MongoDB 연결 실패:', err.message));
 
 // ==========================================
-// 2. Mongoose 데이터 모델 정의 (보관함 및 비번 필드 보강)
+// 2. Mongoose 데이터 모델 정의
 // ==========================================
 const reservationSchema = new mongoose.Schema({
     name: { type: String, required: true },
     phone: { type: String, required: true }, 
     reservationTime: { type: Date, required: true },
-    lockerId: { type: String, default: '' }, // 💡 보관함 번호 저장 필드 추가
-    pw: { type: String, default: '' },       // 💡 비밀번호 저장 필드 추가
+    lockerId: { type: String, default: '' }, 
+    pw: { type: String, default: '' },       
     talkId: { type: String, default: '' },
     status: { type: String, default: 'READY' }, 
     createdAt: { type: Date, default: Date.now }
@@ -50,7 +50,6 @@ const WebhookCapture = mongoose.model('WebhookCapture', webhookCaptureSchema);
 // 3. API 엔드포인트
 // ==========================================
 
-// 🔄 [조회] 화면 켤 때/새로고침 시 DB에서 기존 리스트 호출
 app.get('/api/reservations', async (req, res) => {
     try {
         const list = await Reservation.find().sort({ reservationTime: 1 });
@@ -60,7 +59,6 @@ app.get('/api/reservations', async (req, res) => {
     }
 });
 
-// 📥 [업로드] 프론트엔드에서 정제된 보관함/비번/예약 명단 적재
 app.post('/api/reservations/upload', async (req, res) => {
     try {
         const incomingUsers = req.body; 
@@ -74,8 +72,8 @@ app.post('/api/reservations/upload', async (req, res) => {
                 name: user.name,
                 phone: user.phone,
                 reservationTime: new Date(user.reservationTime),
-                lockerId: user.lockerId || '', // 💡 전달받은 보관함 번호 매핑
-                pw: user.pw || '',             // 💡 전달받은 비밀번호 매핑
+                lockerId: user.lockerId || '', 
+                pw: user.pw || '',             
                 talkId: matchedUser ? matchedUser.talkId : '', 
                 status: matchedUser ? 'SCHEDULED' : 'READY'   
             });
@@ -88,7 +86,6 @@ app.post('/api/reservations/upload', async (req, res) => {
     }
 });
 
-// 🗂️ [웹훅 리스트 조회] 프론트엔드 수동 매핑 팝업창용 데이터 바인딩
 app.get('/api/webhook-captures', async (req, res) => {
     try {
         const captures = await WebhookCapture.find().sort({ receivedAt: -1 }).limit(20);
@@ -98,7 +95,6 @@ app.get('/api/webhook-captures', async (req, res) => {
     }
 });
 
-// 🔗 [수동 확정] 팝업창 매핑 확정 및 영구 장부 등록
 app.post('/api/scheduler/register', async (req, res) => {
     try {
         const { id, talkId } = req.body; 
@@ -124,7 +120,6 @@ app.post('/api/scheduler/register', async (req, res) => {
     }
 });
 
-// ❌ [수동 취소] 관리자가 특정 고객 알림 발송 취소
 app.post('/api/reservations/:id/cancel', async (req, res) => {
     try {
         const order = await Reservation.findById(req.params.id);
@@ -138,7 +133,6 @@ app.post('/api/reservations/:id/cancel', async (req, res) => {
     }
 });
 
-// 🎣 [웹훅 라우터] 'send' 이벤트만 수집하여 대화방 오프닝 액션에 의한 글자 지워짐 철저 방어
 app.post('/webhook', async (req, res) => {
     const eventType = req.body.event; 
     const talkId = req.body.user;
@@ -164,13 +158,12 @@ app.post('/webhook', async (req, res) => {
 });
 
 // ==========================================
-// 4. 네이버 톡톡 실시간 API 발송 함수 (정판 오피셜 템플릿 탑재)
+// 4. 네이버 톡톡 실시간 API 발송 함수 (디버깅 에러 로그 복구)
 // ==========================================
 async function sendTalkMessage(task) {
     const url = 'https://gw.talk.naver.com/chatbot/v1/event';
-    const token = 'iJaGILZJTC2Fj8iLTRSc'; // 💡 철자 'J' 누락 오타 완벽 교정 완료
+    const token = 'iJaGILZJTC2Fj8iLTRSc'; 
 
-    // 💡 대표님이 제공해주신 원본 포맷 100% 그대로 반영 (변수 동적 치환)
     const messageText = `[합정점 무인 수령 및 반납 안내]
 
 안녕하세요, ${task.name}님 😊
@@ -213,6 +206,12 @@ async function sendTalkMessage(task) {
                 'Content-Type': 'application/json;charset=UTF-8'
             }
         });
+
+        // 💡 [버그 추적 핵심 정보] 네이버가 거절한 진짜 이유를 Render 검은 화면에 뿌려줍니다.
+        if (response.data && response.data.success === false) {
+            console.log(`\n❌ [네이버 반환 에러 전문] 대상: ${task.name} | 내역:`, response.data);
+        }
+
         return response.data.success;
     } catch (error) {
         console.error('❌ 네이버 통신 장애:', error.message);
@@ -245,10 +244,7 @@ async function checkQueue() {
 }
 setInterval(checkQueue, 60000);
 
-// ==========================================
-// 6. 서버 포트 오픈
-// ==========================================
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`🚀 백엔드 프로덕션 에디션 기동 완료 (포트: ${PORT})`);
+    console.log(`🚀 백엔드 기동 완료 (포트: ${PORT})`);
 });

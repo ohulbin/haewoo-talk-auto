@@ -88,7 +88,7 @@ cron.schedule('* * * * *', async () => {
 
 // 3. 네이버 톡톡 API 통신 함수
 async function sendTalkMessage(task) {
-    const url = 'https://gw.talk.naver.com/gateway/v1/bot/message';
+    const url = 'https://gw.talk.naver.com/chatbot/v1/event';
     const token = 'iJaGlLZJTC2Fj8iLTRSc'; // 실제 토큰
 
     const messageText = `[합정점 무인 수령 및 반납 안내]

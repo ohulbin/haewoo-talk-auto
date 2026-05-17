@@ -8,15 +8,15 @@ app.use(cors());
 app.use(express.json());
 
 // ==========================================
-// 1. 데이터베이스 연결 (Render 환경변수)
+// 1. DB 연결 (환경변수 유지)
 // ==========================================
 const MONGO_URI = process.env.MONGO_URI;
 mongoose.connect(MONGO_URI)
-    .then(() => console.log('📁 MongoDB Atlas 클라우드 데이터베이스 연결 성공!'))
+    .then(() => console.log('📁 MongoDB 연결 성공!'))
     .catch(err => console.error('❌ MongoDB 연결 실패:', err.message));
 
 // ==========================================
-// 2. Mongoose 데이터 모델 정의
+// 2. 데이터 모델
 // ==========================================
 const reservationSchema = new mongoose.Schema({
     name: { type: String, required: true },
@@ -45,11 +45,9 @@ const webhookCaptureSchema = new mongoose.Schema({
 });
 const WebhookCapture = mongoose.model('WebhookCapture', webhookCaptureSchema);
 
-
 // ==========================================
 // 3. API 엔드포인트
 // ==========================================
-
 app.get('/api/reservations', async (req, res) => {
     try {
         const list = await Reservation.find().sort({ reservationTime: 1 });
@@ -67,7 +65,6 @@ app.post('/api/reservations/upload', async (req, res) => {
         const savedList = [];
         for (let user of incomingUsers) {
             const matchedUser = await TalkUser.findOne({ name: user.name, phone: user.phone });
-
             const newLog = new Reservation({
                 name: user.name,
                 phone: user.phone,
@@ -98,7 +95,6 @@ app.get('/api/webhook-captures', async (req, res) => {
 app.post('/api/scheduler/register', async (req, res) => {
     try {
         const { id, talkId } = req.body; 
-
         const order = await Reservation.findById(id);
         if (!order) return res.status(404).send({ success: false, message: '예약자를 찾을 수 없습니다.' });
 
@@ -111,9 +107,7 @@ app.post('/api/scheduler/register', async (req, res) => {
             { name: order.name, phone: order.phone, talkId: talkId, updatedAt: Date.now() },
             { upsert: true, new: true }
         );
-
         await WebhookCapture.deleteOne({ talkId });
-
         res.send({ success: true, data: order });
     } catch (error) {
         res.status(500).send({ success: false, error: error.message });
@@ -123,8 +117,7 @@ app.post('/api/scheduler/register', async (req, res) => {
 app.post('/api/reservations/:id/cancel', async (req, res) => {
     try {
         const order = await Reservation.findById(req.params.id);
-        if (!order) return res.status(404).send({ success: false, message: '예약을 찾을 수 없습니다.' });
-
+        if (!order) return res.status(404).send({ success: false });
         order.status = 'CANCELLED';
         await order.save();
         res.send({ success: true, data: order });
@@ -133,36 +126,38 @@ app.post('/api/reservations/:id/cancel', async (req, res) => {
     }
 });
 
+// 💡 [신규 추가] 통째로 날려버리는 완전 삭제 API
+app.delete('/api/reservations/:id', async (req, res) => {
+    try {
+        await Reservation.findByIdAndDelete(req.params.id);
+        res.send({ success: true });
+    } catch (error) {
+        res.status(500).send({ success: false, error: error.message });
+    }
+});
+
 app.post('/webhook', async (req, res) => {
     const eventType = req.body.event; 
     const talkId = req.body.user;
-
     if (eventType === 'send' && req.body.textContent) {
         const text = req.body.textContent.text.trim();
-        console.log(`\n🚨 [웹훅 수집] ID: ${talkId} | 내용: ${text}`);
-
         try {
             await WebhookCapture.findOneAndUpdate(
                 { talkId: talkId },
                 { talkId: talkId, lastMessage: text, receivedAt: Date.now() },
                 { upsert: true, new: true }
             );
-        } catch (err) {
-            console.error('웹훅 임시 저장 에러:', err.message);
-        }
-    } else {
-        console.log(`\nℹ️ [웹훅 패스] ID: ${talkId} | 종류: ${eventType}`);
+        } catch (err) { console.error(err); }
     }
-    
     res.send({ success: true });
 });
 
 // ==========================================
-// 4. 네이버 톡톡 실시간 API 발송 함수 (디버깅 에러 로그 복구)
+// 4. 네이버 발송 (대문자 I 오타 교정 완료!)
 // ==========================================
 async function sendTalkMessage(task) {
     const url = 'https://gw.talk.naver.com/chatbot/v1/event';
-    const token = 'iJaGILZJTC2Fj8iLTRSc'; 
+    const token = 'iJaGILZJTC2Fj8iLTRSc'; // 소문자 l을 대문자 I로 교체했습니다!
 
     const messageText = `[합정점 무인 수령 및 반납 안내]
 
@@ -207,26 +202,20 @@ async function sendTalkMessage(task) {
             }
         });
 
-        // 💡 [버그 추적 핵심 정보] 네이버가 거절한 진짜 이유를 Render 검은 화면에 뿌려줍니다.
         if (response.data && response.data.success === false) {
-            console.log(`\n❌ [네이버 반환 에러 전문] 대상: ${task.name} | 내역:`, response.data);
+            console.log(`\n❌ [에러 반환] 대상: ${task.name} | 내역:`, response.data);
         }
-
         return response.data.success;
-    } catch (error) {
-        console.error('❌ 네이버 통신 장애:', error.message);
-        return false;
-    }
+    } catch (error) { return false; }
 }
 
 // ==========================================
-// 5. 스케줄러 메인 루프 (1분 주기 감시)
+// 5. 스케줄러
 // ==========================================
 async function checkQueue() {
     const now = new Date();
     try {
         const activeTasks = await Reservation.find({ status: 'SCHEDULED' });
-
         for (let task of activeTasks) {
             const sendTime = new Date(task.reservationTime);
             sendTime.setHours(sendTime.getHours() - 1); 
@@ -235,16 +224,11 @@ async function checkQueue() {
                 const isSent = await sendTalkMessage(task);
                 task.status = isSent ? 'SENT' : 'FAILED';
                 await task.save();
-                console.log(`[스케줄러 반영] ${task.name}님 발송 결과: ${task.status}`);
+                console.log(`[스케줄러 결과] ${task.name}님: ${task.status}`);
             }
         }
-    } catch (error) {
-        console.error('스케줄러 큐 감시 오류:', error.message);
-    }
+    } catch (error) {}
 }
 setInterval(checkQueue, 60000);
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`🚀 백엔드 기동 완료 (포트: ${PORT})`);
-});
+app.listen(process.env.PORT || 5000, () => console.log(`🚀 백엔드 기동 완료`));

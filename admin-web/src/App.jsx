@@ -41,7 +41,7 @@ function App() {
   const [activePopupUser, setActivePopupUser] = useState(null);
   const [webhookList, setWebhookList] = useState([]);
 
-  const BACKEND_URL = 'http://localhost:5000'; // 💡 로컬 테스트 중이시니 localhost로 임시 고정!
+  const BACKEND_URL = 'https://haewoo-talk-auto.onrender.com';
 
   useEffect(() => {
     fetchReservations();

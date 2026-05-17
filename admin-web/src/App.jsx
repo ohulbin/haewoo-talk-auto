@@ -93,7 +93,9 @@ function App() {
                 extractedUsers.push({
                   name: item.name,
                   phone: item.contact,
-                  reservationTime: dateTimeStr
+                  reservationTime: dateTimeStr,
+                  lockerId: lockerId, // 💡 방 번호 매핑 (예: "24")
+                  pw: item.pw         // 💡 패스워드 매핑 (예: "2419")
                 });
               }
             }

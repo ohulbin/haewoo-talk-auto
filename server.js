@@ -16,20 +16,20 @@ mongoose.connect(MONGO_URI)
     .catch(err => console.error('❌ MongoDB 연결 실패:', err.message));
 
 // ==========================================
-// 2. Mongoose 데이터 모델 정의
+// 2. Mongoose 데이터 모델 정의 (보관함 및 비번 필드 보강)
 // ==========================================
-// 📌 A. 당일 대기열 명단
 const reservationSchema = new mongoose.Schema({
     name: { type: String, required: true },
-    phone: { type: String, required: true }, // 전체 전화번호 (대조용)
+    phone: { type: String, required: true }, 
     reservationTime: { type: Date, required: true },
+    lockerId: { type: String, default: '' }, // 💡 보관함 번호 저장 필드 추가
+    pw: { type: String, default: '' },       // 💡 비밀번호 저장 필드 추가
     talkId: { type: String, default: '' },
-    status: { type: String, default: 'READY' }, // READY, SCHEDULED, SENT, FAILED, CANCELLED
+    status: { type: String, default: 'READY' }, 
     createdAt: { type: Date, default: Date.now }
 });
 const Reservation = mongoose.model('Reservation', reservationSchema);
 
-// 📌 B. 영구 고객 장부 (이름+전화번호 조합으로 중복 원천 차단)
 const talkUserSchema = new mongoose.Schema({
     name: { type: String, required: true },
     phone: { type: String, required: true, unique: true }, 
@@ -38,7 +38,6 @@ const talkUserSchema = new mongoose.Schema({
 });
 const TalkUser = mongoose.model('TalkUser', talkUserSchema);
 
-// 📌 C. 웹훅 미확인 임시 수신함 (팝업창 노출용)
 const webhookCaptureSchema = new mongoose.Schema({
     talkId: { type: String, required: true, unique: true },
     lastMessage: { type: String, default: '' },
@@ -48,7 +47,7 @@ const WebhookCapture = mongoose.model('WebhookCapture', webhookCaptureSchema);
 
 
 // ==========================================
-// 3. API 엔드포인트 (컨트롤러)
+// 3. API 엔드포인트
 // ==========================================
 
 // 🔄 [조회] 화면 켤 때/새로고침 시 DB에서 기존 리스트 호출
@@ -61,23 +60,24 @@ app.get('/api/reservations', async (req, res) => {
     }
 });
 
-// 📥 [업로드] JSON 명단 등록 + 장부 대조 자동 매핑
+// 📥 [업로드] 프론트엔드에서 정제된 보관함/비번/예약 명단 적재
 app.post('/api/reservations/upload', async (req, res) => {
     try {
-        const incomingUsers = req.body; // [{name, phone, reservationTime}, ...]
-        await Reservation.deleteMany({}); // 당일 신규 조회를 위해 기존 대기열 비우기
+        const incomingUsers = req.body; 
+        await Reservation.deleteMany({}); 
 
         const savedList = [];
         for (let user of incomingUsers) {
-            // 💡 핵심: 이름과 전화번호가 모두 일치하는 단골 고객이 장부에 있는지 조회
             const matchedUser = await TalkUser.findOne({ name: user.name, phone: user.phone });
 
             const newLog = new Reservation({
                 name: user.name,
                 phone: user.phone,
                 reservationTime: new Date(user.reservationTime),
-                talkId: matchedUser ? matchedUser.talkId : '', // 찾으면 자동 입력, 없으면 빈칸
-                status: matchedUser ? 'SCHEDULED' : 'READY'   // 자동 매핑 시 바로 스케줄 예약 상태로 변경
+                lockerId: user.lockerId || '', // 💡 전달받은 보관함 번호 매핑
+                pw: user.pw || '',             // 💡 전달받은 비밀번호 매핑
+                talkId: matchedUser ? matchedUser.talkId : '', 
+                status: matchedUser ? 'SCHEDULED' : 'READY'   
             });
             await newLog.save();
             savedList.push(newLog);
@@ -88,7 +88,7 @@ app.post('/api/reservations/upload', async (req, res) => {
     }
 });
 
-// 🗂️ [웹훅 리스트 조회] 프론트엔드 팝업창에 띄울 미확인 톡 목록 리턴
+// 🗂️ [웹훅 리스트 조회] 프론트엔드 수동 매핑 팝업창용 데이터 바인딩
 app.get('/api/webhook-captures', async (req, res) => {
     try {
         const captures = await WebhookCapture.find().sort({ receivedAt: -1 }).limit(20);
@@ -98,10 +98,10 @@ app.get('/api/webhook-captures', async (req, res) => {
     }
 });
 
-// 🔗 [수동 확정] 팝업창에서 특정 ID 선택 시 매핑 유도 및 영구 장부 등록
+// 🔗 [수동 확정] 팝업창 매핑 확정 및 영구 장부 등록
 app.post('/api/scheduler/register', async (req, res) => {
     try {
-        const { id, talkId } = req.body; // id: Reservation의 _id 값
+        const { id, talkId } = req.body; 
 
         const order = await Reservation.findById(id);
         if (!order) return res.status(404).send({ success: false, message: '예약자를 찾을 수 없습니다.' });
@@ -110,14 +110,12 @@ app.post('/api/scheduler/register', async (req, res) => {
         order.status = 'SCHEDULED';
         await order.save();
 
-        // 💡 다음 예약을 위한 빌드업: 영구 장부(TalkUser)에 고객 정보와 톡 고유 ID 박아두기
         await TalkUser.findOneAndUpdate(
-            { phone: order.phone }, // 전화번호는 고유하므로 훌륭한 Key가 됩니다.
+            { phone: order.phone }, 
             { name: order.name, phone: order.phone, talkId: talkId, updatedAt: Date.now() },
             { upsert: true, new: true }
         );
 
-        // 짝이 맞춰졌으므로 임시 보관함에서 해당 톡 데이터 삭제 삭제
         await WebhookCapture.deleteOne({ talkId });
 
         res.send({ success: true, data: order });
@@ -126,7 +124,7 @@ app.post('/api/scheduler/register', async (req, res) => {
     }
 });
 
-// ❌ [수동 취소] 관리자가 리스트에서 특정 고객 발송 취소 처리
+// ❌ [수동 취소] 관리자가 특정 고객 알림 발송 취소
 app.post('/api/reservations/:id/cancel', async (req, res) => {
     try {
         const order = await Reservation.findById(req.params.id);
@@ -140,33 +138,39 @@ app.post('/api/reservations/:id/cancel', async (req, res) => {
     }
 });
 
-// 🎣 [웹훅 라우터] 고객이 말을 걸면 미확인 수신함에 일단 다 꽂아둠
+// 🎣 [웹훅 라우터] 'send' 이벤트만 수집하여 대화방 오프닝 액션에 의한 글자 지워짐 철저 방어
 app.post('/webhook', async (req, res) => {
+    const eventType = req.body.event; 
     const talkId = req.body.user;
-    const text = req.body.textContent ? req.body.textContent.text.trim() : '내용 없음';
 
-    console.log(`\n🚨 [웹훅 수집] ID: ${talkId} | 메시지: ${text}`);
+    if (eventType === 'send' && req.body.textContent) {
+        const text = req.body.textContent.text.trim();
+        console.log(`\n🚨 [웹훅 수집] ID: ${talkId} | 내용: ${text}`);
 
-    try {
-        // 임시 보관함에 업데이트 (이미 존재하면 최신 메시지와 시간으로 갱신)
-        await WebhookCapture.findOneAndUpdate(
-            { talkId: talkId },
-            { talkId: talkId, lastMessage: text, receivedAt: Date.now() },
-            { upsert: true, new: true }
-        );
-    } catch (err) {
-        console.error('웹훅 임시 저장 에러:', err.message);
+        try {
+            await WebhookCapture.findOneAndUpdate(
+                { talkId: talkId },
+                { talkId: talkId, lastMessage: text, receivedAt: Date.now() },
+                { upsert: true, new: true }
+            );
+        } catch (err) {
+            console.error('웹훅 임시 저장 에러:', err.message);
+        }
+    } else {
+        console.log(`\nℹ️ [웹훅 패스] ID: ${talkId} | 종류: ${eventType}`);
     }
+    
     res.send({ success: true });
 });
 
 // ==========================================
-// 4. 네이버 톡톡 실시간 API 발송 함수 (Bearer 제거 완료)
+// 4. 네이버 톡톡 실시간 API 발송 함수 (정판 오피셜 템플릿 탑재)
 // ==========================================
 async function sendTalkMessage(task) {
     const url = 'https://gw.talk.naver.com/chatbot/v1/event';
-    const token = 'iJaGlLZTC2Fj8iLTRSc'; // 어울빈 실토큰 유지
+    const token = 'iJaGILZJTC2Fj8iLTRSc'; // 💡 철자 'J' 누락 오타 완벽 교정 완료
 
+    // 💡 대표님이 제공해주신 원본 포맷 100% 그대로 반영 (변수 동적 치환)
     const messageText = `[합정점 무인 수령 및 반납 안내]
 
 안녕하세요, ${task.name}님 😊
@@ -174,7 +178,29 @@ async function sendTalkMessage(task) {
 
 📍 1. 매장 위치
 주소 : 마포구 양화로 45 메세나폴리스 116호
-위치 : 지하철 6호선 10번 출구 도보 1분 ('결이 고운 에스테틱' 옆)`;
+위치 : 지하철 6호선 10번 출구 도보 1분 ('결이 고운 에스테틱' 옆) / 1층 세븐 일레븐, 야외 공연장 인근
+
+🔐 2. 매장 출입
+출입 번호 : [070-5234-5861]
+매장 앞에서 위 번호로 전화를 거시면 문이 열립니다.
+** 예약 시간 내에만 수령·반납 가능합니다 **
+
+📦 3. 보관함 수령 및 반납
+보관함 정보 : [${task.lockerId}번] 보관함 (비밀번호 : [${task.pw}])
+🚨 절대 다이얼 비밀번호를 변경하지 말아주세요.
+
+반납 방법 : 수령 시와 동일한 비밀번호로 문을 열고 반납해 주세요.
+* 문이 잘 안 열리거나 안 잠긴다면 꾹 누르면서 다이얼을 돌려주시면 됩니다.
+
+📸 4. 사진 전송 (필수)
+수령할 때 1장 / 반납할 때 1장
+물품 전체 구성품 사진을 찍어 **톡톡**으로 보내주세요.
+
+⚠️ 무단 사용 금지
+외부에 비치된 배터리 / 리더기 / SD카드는 추가 결제 고객 전용입니다.
+결제 없이 사용 시 요금 청구 또는 이용 제한이 발생할 수 있습니다.
+
+☎️ 비상 연락처 : 010-4607-0732`;
 
     try {
         const response = await axios.post(url, {
@@ -183,7 +209,7 @@ async function sendTalkMessage(task) {
             textContent: { text: messageText }
         }, {
             headers: {
-                'Authorization': token, // 네이버 규격 준수
+                'Authorization': token, 
                 'Content-Type': 'application/json;charset=UTF-8'
             }
         });
@@ -204,7 +230,7 @@ async function checkQueue() {
 
         for (let task of activeTasks) {
             const sendTime = new Date(task.reservationTime);
-            sendTime.setHours(sendTime.getHours() - 1); // 1시간 전 발송 타겟팅
+            sendTime.setHours(sendTime.getHours() - 1); 
 
             if (now >= sendTime) {
                 const isSent = await sendTalkMessage(task);
@@ -224,5 +250,5 @@ setInterval(checkQueue, 60000);
 // ==========================================
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`🚀 백엔드 기동 완료 (포트: ${PORT})`);
+    console.log(`🚀 백엔드 프로덕션 에디션 기동 완료 (포트: ${PORT})`);
 });

@@ -149,7 +149,7 @@ async function sendTalkMessage(task) {
 }
 
 // 4. 서버 구동
-const PORT = 5000;
+const PORT = process.env.PORT || 5000; // 💡 Render가 주는 포트를 최우선으로 사용하도록 변경
 app.listen(PORT, () => {
     console.log(`\n🚀 무인점 톡톡 자동화 서버가 실행되었습니다. (포트: ${PORT})`);
     console.log(`⏳ 1분마다 발송 대기열을 체크합니다...\n`);

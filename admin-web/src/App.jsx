@@ -69,7 +69,7 @@ function App() {
 
     try {
       // Render 배포 후에는 본인의 backend URL로 변경 필요
-      const response = await fetch('https://haewoo-talk-auto.onrender.com', {
+      const response = await fetch('https://haewoo-talk-auto.onrender.com/api/scheduler/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user)

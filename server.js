@@ -123,7 +123,6 @@ async function sendTalkMessage(task) {
 ☎️ 비상 연락처 : 010-4607-0732`;
 
     try {
-        //[실제 통신을 위한 코드 - 현재는 테스트를 위해 주석 처리]
         const response = await axios.post(url, {
             event: "send",
             user: task.talkId,
@@ -134,19 +133,29 @@ async function sendTalkMessage(task) {
                 'Content-Type': 'application/json;charset=UTF-8'
             }
         });
-        console.log(`\n--- 💌 네이버 톡톡 발송 시뮬레이션 ---\n${messageText}\n-----------------------------------\n`);
+    
+        // 네이버가 발송을 거절했다면 왜 거절했는지 로그에 출력!
+        if (response.data.success === false) {
+            console.log(`❌ [네이버 반환 에러 내역]:`, response.data);
+        }
+
         return response.data.success;
-        
-        
-        // 현재는 실제 API 토큰이 없으므로, 100% 성공한다고 가정하고 콘솔에 내용만 띄웁니다.
-        //console.log(`\n--- 💌 네이버 톡톡 발송 시뮬레이션 ---\n${messageText}\n-----------------------------------\n`);
-        //return true; 
 
     } catch (error) {
-        console.error('API 발송 에러:', error.message);
+        console.error('❌ API 발송 에러:', error.message);
         return false;
     }
 }
+
+// 3.5 [필수] 네이버 톡톡 진짜 고유 ID를 낚아채는 웹훅 트랩
+app.post('/webhook', (req, res) => {
+    console.log('\n=======================================');
+    console.log('🚨 [웹훅 수신] 누군가 톡톡 메시지를 보냈습니다!');
+    console.log('👉 [진짜 톡톡 ID]:', req.body.user);
+    console.log('💬 [보낸 메시지]:', req.body.textContent ? req.body.textContent.text : '내용 없음');
+    console.log('=======================================\n');
+    res.send({ success: true });
+});
 
 // 4. 서버 구동
 const PORT = process.env.PORT || 5000; // 💡 Render가 주는 포트를 최우선으로 사용하도록 변경

@@ -34,7 +34,7 @@ function App() {
   const [webhookList, setWebhookList] = useState([]);
 
   // 💡 로컬 테스트 배포용 상태 세팅 (Render 올리실땐 다시 Render 주소로 교체!)
-  const BACKEND_URL = 'http://localhost:5000'; 
+  const BACKEND_URL = 'https://haewoo-talk-auto.onrender.com'; 
 
   useEffect(() => {
     fetchReservations();

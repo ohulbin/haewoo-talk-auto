@@ -1,14 +1,48 @@
 import React, { useState, useEffect } from 'react';
-import './App.css';
+
+// 🎨 2026 Modern Soft Blue & Round UI Theme
+const styles = {
+  container: { padding: '40px 60px', backgroundColor: '#F8FAFC', minHeight: '100vh', fontFamily: "'Pretendard', -apple-system, sans-serif", color: '#0F172A' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' },
+  title: { fontSize: '32px', fontWeight: '800', color: '#1E3A8A', margin: 0, letterSpacing: '-0.5px' },
+  
+  // 최신식 파일 업로드 UI (숨긴 input을 라벨로 예쁘게 포장)
+  uploadWrapper: { position: 'relative', display: 'inline-block' },
+  uploadLabel: { 
+    display: 'flex', alignItems: 'center', gap: '10px', 
+    backgroundColor: '#EFF6FF', color: '#2563EB', 
+    padding: '14px 24px', borderRadius: '24px', 
+    fontWeight: '700', fontSize: '15px', cursor: 'pointer',
+    border: '2px dashed #93C5FD', transition: 'all 0.2s ease-in-out'
+  },
+  fileInput: { display: 'none' }, // 💡 못생긴 기본 input 버튼은 숨김 처리
+  
+  card: { backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05)', padding: '30px' },
+  table: { width: '100%', borderCollapse: 'collapse', marginTop: '10px' },
+  th: { padding: '18px 15px', textAlign: 'center', fontWeight: '700', color: '#64748B', borderBottom: '2px solid #F1F5F9', fontSize: '14px' },
+  td: { padding: '20px 15px', borderBottom: '1px solid #F8FAFC', textAlign: 'center', fontSize: '15px', color: '#334155' },
+  
+  badge: (status) => ({
+    padding: '8px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '700', color: '#fff', display: 'inline-block',
+    backgroundColor: status === 'SENT' ? '#10B981' : status === 'SCHEDULED' ? '#3B82F6' : status === 'CANCELLED' ? '#F43F5E' : '#94A3B8',
+    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+  }),
+  
+  btnPrimary: { backgroundColor: '#2563EB', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '16px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)' },
+  btnCancel: { backgroundColor: '#FFF1F2', color: '#E11D48', border: 'none', padding: '10px 20px', borderRadius: '16px', fontWeight: '700', cursor: 'pointer' },
+  
+  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
+  modalContent: { backgroundColor: '#FFFFFF', padding: '40px', borderRadius: '32px', width: '500px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' },
+  chatItem: { display: 'flex', flexDirection: 'column', gap: '10px', padding: '18px', borderRadius: '16px', backgroundColor: '#F8FAFC', marginBottom: '12px', border: '1px solid #E2E8F0' }
+};
 
 function App() {
   const [reservedList, setReservedList] = useState([]);
-  const [activePopupUser, setActivePopupUser] = useState(null); // 현재 팝업이 켜진 고객 타겟
-  const [webhookList, setWebhookList] = useState([]); // 임시 수신 톡 목록
+  const [activePopupUser, setActivePopupUser] = useState(null);
+  const [webhookList, setWebhookList] = useState([]);
 
-  const BACKEND_URL = 'https://haewoo-talk-auto.onrender.com';
+  const BACKEND_URL = 'http://localhost:5000'; // 💡 로컬 테스트 중이시니 localhost로 임시 고정!
 
-  // 🔄 [새로고침 방어] 컴포넌트 마운트 시 DB에 남아있는 당일 예약 현황 로드
   useEffect(() => {
     fetchReservations();
   }, []);
@@ -19,181 +53,207 @@ function App() {
       const data = await res.json();
       setReservedList(data);
     } catch (err) {
-      console.error('데이터 로드 실패', err);
+      console.error('데이터 조회 실패', err);
     }
   };
 
-  // 📥 JSON 파일 파싱 및 업로드 처리
   const handleJsonUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = async (event) => {
+      let extractedUsers = [];
+
+      // =====================================
+      // 1단계: 순수 데이터 파싱 및 정제 (안전장치 추가)
+      // =====================================
       try {
         const parsedData = JSON.parse(event.target.result);
         
-        // 백엔드 업로드 API 호출
+        if (!parsedData.lockers) {
+          alert('올바른 보관함 데이터 파일이 아닙니다. (lockers 키 없음)');
+          return;
+        }
+
+        const phoneSet = new Set(); 
+
+        for (const lockerId in parsedData.lockers) {
+          const items = parsedData.lockers[lockerId];
+          
+          // 💡 방어 로직: 보관함이 비어있거나 배열이 아니면 무시하고 다음으로 넘어감
+          if (!items || !Array.isArray(items)) continue;
+          
+          for (const item of items) {
+            if (item.status === 'reserved') {
+              if (!phoneSet.has(item.contact)) {
+                phoneSet.add(item.contact);
+                
+                const dateTimeStr = `${item.startDate}T${item.startTime}:00`;
+                extractedUsers.push({
+                  name: item.name,
+                  phone: item.contact,
+                  reservationTime: dateTimeStr
+                });
+              }
+            }
+          }
+        }
+        
+        console.log("🚀 정제 완료된 명단:", extractedUsers); // F12 콘솔에서 추출 성공 여부 확인
+
+      } catch (err) {
+        console.error("데이터 정제 에러:", err);
+        alert('JSON 파일 형식이 잘못되었거나 파싱 중 오류가 발생했습니다.');
+        return; // 여기서 로직 중단
+      }
+
+      if (extractedUsers.length === 0) {
+        alert('발송 대기(reserved) 상태인 고객이 없습니다.');
+        return;
+      }
+
+      // =====================================
+      // 2단계: 백엔드 서버로 데이터 전송
+      // =====================================
+      try {
         const res = await fetch(`${BACKEND_URL}/api/reservations/upload`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(parsedData)
+          body: JSON.stringify(extractedUsers)
         });
-        const result = await res.json();
         
+        const result = await res.json();
         if (result.success) {
           setReservedList(result.data);
-          alert('예약 명단이 안전하게 업로드 및 DB 동기화 되었습니다.');
+          alert(`총 ${extractedUsers.length}명의 예약자가 성공적으로 시스템에 등록되었습니다! 🚀`);
+        } else {
+          alert('서버 내부 에러: ' + result.error);
         }
       } catch (err) {
-        alert('올바른 JSON 형식이 아닙니다.');
+        console.error("서버 통신 에러:", err);
+        alert('백엔드 서버와 연결할 수 없습니다. 로컬 서버(localhost:5000)가 켜져 있는지 확인해주세요!');
       }
     };
+    
     reader.readAsText(file);
+    e.target.value = null; // 초기화
   };
 
-  // 🔗 [팝업 오픈] 수동 연결 창을 켤 때 백엔드에 잡힌 웹훅 기록 긁어오기
   const openMappingPopup = async (user) => {
     setActivePopupUser(user);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/webhook-captures`);
-      const data = await res.json();
-      setWebhookList(data);
-    } catch (err) {
-      alert('웹훅 리스트를 가져오지 못했습니다.');
-    }
+    const res = await fetch(`${BACKEND_URL}/api/webhook-captures`);
+    const data = await res.json();
+    setWebhookList(data);
   };
 
-  // 🎯 [팝업 매핑 선택] 임시 톡 Id와 매핑 확정 
   const connectTalkId = async (talkId) => {
-    if (!activePopupUser) return;
-    
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/scheduler/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: activePopupUser._id, talkId: talkId })
-      });
-      const result = await res.json();
-
-      if (result.success) {
-        alert(`${activePopupUser.name}님 발송 예약이 완료되었으며 단골 장부에 등록되었습니다.`);
-        setActivePopupUser(null);
-        fetchReservations(); // 리스트 새로고침
-      }
-    } catch (err) {
-      alert('매핑 처리 중 서버 통신 에러가 발생했습니다.');
+    const res = await fetch(`${BACKEND_URL}/api/scheduler/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: activePopupUser._id, talkId: talkId })
+    });
+    const result = await res.json();
+    if (result.success) {
+      setActivePopupUser(null);
+      fetchReservations();
     }
   };
 
-  // ❌ [수동 취소] 스케줄 취소 버튼 액션
-  const cancelTask = async (id, name) => {
-    if (!window.confirm(`${name}님의 수령안내 알림톡 예약을 취소하시겠습니까?`)) return;
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/reservations/${id}/cancel`, { method: 'POST' });
-      const result = await res.json();
-      if (result.success) {
-        alert('발송 예약이 취소되었습니다.');
-        fetchReservations();
-      }
-    } catch (err) {
-      alert('취소 처리 실패');
-    }
+  const cancelTask = async (id) => {
+    if (!window.confirm('발송 예약을 취소할까요?')) return;
+    await fetch(`${BACKEND_URL}/api/reservations/${id}/cancel`, { method: 'POST' });
+    fetchReservations();
   };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h2>해우렌탈 무인 알림톡 통합 관제소 (MongoDB 요람)</h2>
-      
-      <div style={{ marginBottom: '20px', padding: '15px', background: '#f0f2f5', borderRadius: '8px' }}>
-        <label style={{ fontWeight: 'bold' }}>📅 네이버폼 당일 예약 JSON 명단 등록: </label>
-        <input type="file" accept=".json" onChange={handleJsonUpload} style={{ marginLeft: '10px' }} />
-      </div>
+    <div style={styles.container}>
+      <header style={styles.header}>
+        <h1 style={styles.title}>Haewoo AutoDesk</h1>
+        
+        {/* 모던한 커스텀 파일 업로드 버튼 */}
+        <div style={styles.uploadWrapper}>
+          <label htmlFor="jsonUpload" style={styles.uploadLabel}>
+            <span style={{fontSize: '20px'}}>☁️</span> JSON 명단 업로드
+          </label>
+          <input 
+            id="jsonUpload" 
+            type="file" 
+            accept=".json" 
+            onChange={handleJsonUpload} 
+            style={styles.fileInput} 
+          />
+        </div>
+      </header>
 
-      <table border="1" cellPadding="10" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-        <thead>
-          <tr style={{ background: '#e2e8f0' }}>
-            <th>고객명</th>
-            <th>연락처</th>
-            <th>대여 예정시간</th>
-            <th>네이버 톡톡 고유 ID</th>
-            <th>현재 상태</th>
-            <th>제어 플러그</th>
-          </tr>
-        </thead>
-        <tbody>
-          {reservedList.length === 0 ? (
-            <tr><td colSpan="6">등록된 대기 명단이 없습니다. JSON 파일을 업로드해 주세요.</td></tr>
-          ) : (
-            reservedList.map((user) => (
+      <div style={styles.card}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.th}>고객명</th>
+              <th style={styles.th}>연락처</th>
+              <th style={styles.th}>예약 시간</th>
+              <th style={styles.th}>톡톡 ID</th>
+              <th style={styles.th}>상태</th>
+              <th style={styles.th}>관리</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reservedList.map((user) => (
               <tr key={user._id}>
-                <td>{user.name}</td>
-                <td>{user.phone}</td>
-                <td>{new Date(user.reservationTime).toLocaleString('ko-KR')}</td>
-                <td style={{ color: user.talkId ? 'blue' : 'gray', fontWeight: user.talkId ? 'bold' : 'normal' }}>
-                  {user.talkId || '❌ 미연동 (장부 없음)'}
+                <td style={{...styles.td, fontWeight: '800'}}>{user.name}</td>
+                <td style={styles.td}>{user.phone}</td>
+                <td style={styles.td}>{new Date(user.reservationTime).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                <td style={styles.td}>
+                  {user.talkId ? (
+                    <span style={{color: '#2563EB', fontWeight: '800', background: '#DBEAFE', padding: '6px 12px', borderRadius: '12px'}}>✅ {user.talkId.substring(0,8)}...</span>
+                  ) : (
+                    <span style={{color: '#94A3B8'}}>미연동</span>
+                  )}
                 </td>
-                <td>
-                  <span style={{
-                    padding: '3px 8px', borderRadius: '4px', color: '#fff', fontSize: '12px',
-                    background: user.status === 'SENT' ? '#22c55e' : user.status === 'SCHEDULED' ? '#3b82f6' : user.status === 'CANCELLED' ? '#ef4444' : '#64748b'
-                  }}>
-                    {user.status}
-                  </span>
+                <td style={styles.td}>
+                  <span style={styles.badge(user.status)}>{user.status}</span>
                 </td>
-                <td>
+                <td style={styles.td}>
                   {!user.talkId && user.status === 'READY' && (
-                    <button onClick={() => openMappingPopup(user)} style={{ background: '#eab308', color: '#000', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' }}>
-                      🔗 ID 매핑하기
-                    </button>
+                    <button onClick={() => openMappingPopup(user)} style={styles.btnPrimary}>ID 연결 🔗</button>
                   )}
                   {user.status === 'SCHEDULED' && (
-                    <button onClick={() => cancelTask(user._id, user.name)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>
-                      🛑 발송 취소
-                    </button>
+                    <button onClick={() => cancelTask(user._id)} style={styles.btnCancel}>취소 🛑</button>
                   )}
-                  {user.status === 'SENT' && <span>✅ 전송완료됨</span>}
-                  {user.status === 'CANCELLED' && <span style={{ color: 'red' }}>취소된 예약</span>}
+                  {user.status === 'SENT' && <span style={{color: '#10B981', fontWeight: '800'}}>전송됨</span>}
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-      {/* 팝업창 모달 레이어 구조 */}
       {activePopupUser && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', width: '500px', maxHeight: '80vh', overflowY: 'auto' }}>
-            <h3>🎯 톡톡 고유 ID 수동 매핑 팝업</h3>
-            <p style={{ color: '#2563eb' }}>대상자: <b>{activePopupUser.name}</b> ({activePopupUser.phone})</p>
-            <p style={{ fontSize: '13px', color: '#64748b' }}>네이버 파트너센터 채팅창 시간대와 내용을 대조해 아래에서 올바른 고객을 매치해 주세요.</p>
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <h2 style={{color: '#1E3A8A', margin: '0 0 10px 0', fontSize: '24px'}}>수동 ID 매칭</h2>
+            <p style={{color: '#64748B', marginBottom: '25px'}}>대상: <strong style={{color: '#0F172A'}}>{activePopupUser.name}</strong> ({activePopupUser.phone})</p>
             
-            <hr />
-            
-            <div style={{ marginTop: '15px' }}>
+            <div style={{maxHeight: '400px', overflowY: 'auto', marginBottom: '20px'}}>
               {webhookList.length === 0 ? (
-                <p style={{ color: 'red', fontSize: '14px' }}>임시 보관함에 들어온 최신 톡 데이터가 없습니다. 고객이 톡을 한마디라도 보내야 트랩에 감지됩니다.</p>
+                <div style={{textAlign: 'center', padding: '40px', color: '#94A3B8'}}>
+                  <span style={{fontSize: '40px', display: 'block', marginBottom: '10px'}}>📭</span>
+                  수집된 톡 대화가 없습니다.
+                </div>
               ) : (
-                webhookList.map((chat) => (
-                  <div key={chat._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}>
-                    <div style={{ textAlign: 'left', width: '70%' }}>
-                      <div style={{ fontWeight: 'bold', color: '#475569' }}>ID: {chat.talkId.substring(0, 12)}...</div>
-                      <div style={{ color: '#0f172a', background: '#f1f5f9', padding: '5px', borderRadius: '4px', marginTop: '3px' }}>💬 {chat.lastMessage}</div>
-                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(chat.receivedAt).toLocaleTimeString()}</span>
+                webhookList.map(chat => (
+                  <div key={chat._id} style={styles.chatItem}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <span style={{fontSize: '12px', color: '#94A3B8', fontWeight: '600'}}>{new Date(chat.receivedAt).toLocaleTimeString()}</span>
+                      <button onClick={() => connectTalkId(chat.talkId)} style={{...styles.btnPrimary, padding: '6px 14px', fontSize: '13px'}}>선택</button>
                     </div>
-                    <button onClick={() => connectTalkId(chat.talkId)} style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>
-                      선택 🔗
-                    </button>
+                    <div style={{fontWeight: '500', color: '#334155'}}>{chat.lastMessage}</div>
                   </div>
                 ))
               )}
             </div>
-
-            <button onClick={() => setActivePopupUser(null)} style={{ marginTop: '20px', width: '100%', padding: '10px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-              닫기 (창 닫기)
-            </button>
+            <button onClick={() => setActivePopupUser(null)} style={{width: '100%', padding: '16px', borderRadius: '16px', border: 'none', background: '#F1F5F9', color: '#475569', cursor: 'pointer', fontWeight: '800', fontSize: '15px'}}>닫기</button>
           </div>
         </div>
       )}

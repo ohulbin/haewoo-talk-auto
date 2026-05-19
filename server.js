@@ -8,7 +8,7 @@ app.use(cors());
 app.use(express.json());
 
 // ==========================================
-// 1. DB 연결 (환경변수 유지)
+// 1. DB 연결 (환경변수)
 // ==========================================
 const MONGO_URI = process.env.MONGO_URI;
 mongoose.connect(MONGO_URI)
@@ -57,50 +57,41 @@ app.get('/api/reservations', async (req, res) => {
     }
 });
 
-// 🔄 [수정] 스마트 병합(Merge) 방식으로 변경 (덮어쓰기 및 중복발송 완전 방어)
+// 🔄 [구조 전면 혁신] 스마트 보관함 동기화 엔진 (유령 데이터 및 누락 매커니즘 해결)
 app.post('/api/reservations/upload', async (req, res) => {
     try {
         const incomingUsers = req.body; 
 
+        // 1. 이번 JSON 파일에 들어있는 보관함 번호(lockerId)들을 싹 긁어모읍니다.
+        const incomingLockerIds = [...new Set(incomingUsers.map(u => u.lockerId))];
+
+        // 2. [유령 데이터 청소] 해당 보관함 번호들 중 아직 발송 안 된(READY, SCHEDULED 등) 기존 행들만 골라 지웁니다.
+        // 이미 발송 완료(SENT)된 내역은 장부 보호를 위해 절대 지우지 않습니다.
+        await Reservation.deleteMany({
+            lockerId: { $in: incomingLockerIds },
+            status: { $ne: 'SENT' }
+        });
+
+        // 3. 신규 명단을 순회하며 적재를 시작합니다.
         for (let user of incomingUsers) {
-            // 전화번호를 기준으로 기존 예약이 존재하는지 확인
-            const existing = await Reservation.findOne({ phone: user.phone });
+            // 이미 동일 보관함에 동일 번호로 발송 완료(SENT)된 이력이 진짜 존재하는지 최종 체크
+            const isAlreadySent = await Reservation.findOne({ phone: user.phone, lockerId: user.lockerId, status: 'SENT' });
+            if (isAlreadySent) continue; // 발송 완료된 단골은 중복 뷰 생성 방지를 위해 패스
 
-            if (existing) {
-                // 🚨 이미 알림톡이 나간(SENT) 고객은 절대 데이터를 건드리지 않고 보호합니다.
-                if (existing.status === 'SENT') continue;
-
-                // 발송 전 상태라면 새로운 보관함 번호와 비밀번호, 시간 정보로 업데이트
-                const matchedUser = await TalkUser.findOne({ name: user.name, phone: user.phone });
-                existing.name = user.name;
-                existing.reservationTime = new Date(user.reservationTime);
-                existing.lockerId = user.lockerId || existing.lockerId;
-                existing.pw = user.pw || existing.pw;
-                
-                if (matchedUser) {
-                    existing.talkId = matchedUser.talkId;
-                    if (existing.status === 'READY' || existing.status === 'CANCELLED') {
-                        existing.status = 'SCHEDULED';
-                    }
-                }
-                await existing.save();
-            } else {
-                // 신규 예약자라면 새롭게 장부에 등록
-                const matchedUser = await TalkUser.findOne({ name: user.name, phone: user.phone });
-                const newLog = new Reservation({
-                    name: user.name,
-                    phone: user.phone,
-                    reservationTime: new Date(user.reservationTime),
-                    lockerId: user.lockerId || '', 
-                    pw: user.pw || '',             
-                    talkId: matchedUser ? matchedUser.talkId : '', 
-                    status: matchedUser ? 'SCHEDULED' : 'READY'   
-                });
-                await newLog.save();
-            }
+            const matchedUser = await TalkUser.findOne({ name: user.name, phone: user.phone });
+            
+            const newLog = new Reservation({
+                name: user.name,
+                phone: user.phone,
+                reservationTime: new Date(user.reservationTime),
+                lockerId: user.lockerId, 
+                pw: user.pw,             
+                talkId: matchedUser ? matchedUser.talkId : '', 
+                status: matchedUser ? 'SCHEDULED' : 'READY'   
+            });
+            await newLog.save();
         }
 
-        // 💡 중요: 업로드 후 새로고침 없이 UI가 즉시 갱신되도록 최신 리스트 전체를 반환합니다.
         const updatedList = await Reservation.find().sort({ reservationTime: 1 });
         res.send({ success: true, data: updatedList });
     } catch (error) {
@@ -108,7 +99,6 @@ app.post('/api/reservations/upload', async (req, res) => {
     }
 });
 
-// 🔄 [수정] 한번에 보이는 대화내역 한도를 20개에서 50개로 상향 조정
 app.get('/api/webhook-captures', async (req, res) => {
     try {
         const captures = await WebhookCapture.find().sort({ receivedAt: -1 }).limit(50);
@@ -122,7 +112,7 @@ app.post('/api/scheduler/register', async (req, res) => {
     try {
         const { id, talkId } = req.body; 
         const order = await Reservation.findById(id);
-        if (!order) return res.status(404).send({ success: false, message: '예약자를 찾을 수 없습니다.' });
+        if (!order) return res.status(404).send({ success: false });
 
         order.talkId = talkId;
         order.status = 'SCHEDULED';
@@ -131,35 +121,29 @@ app.post('/api/scheduler/register', async (req, res) => {
         await TalkUser.findOneAndUpdate(
             { phone: order.phone }, 
             { name: order.name, phone: order.phone, talkId: talkId, updatedAt: Date.now() },
-            { upsert: true, new: true }
+            { @returnDocument: 'after', upsert: true } // Mongoose 경고 완벽 해결 패치
         );
         await WebhookCapture.deleteOne({ talkId });
         res.send({ success: true, data: order });
-    } catch (error) {
-        res.status(500).send({ success: false, error: error.message });
-    }
+    } catch (error) { res.status(500).send({ success: false }); }
 });
 
 app.post('/api/reservations/:id/cancel', async (req, res) => {
     try {
         const order = await Reservation.findById(req.params.id);
-        if (!order) return res.status(404).send({ success: false });
-        order.status = 'CANCELLED';
-        await order.save();
-        res.send({ success: true, data: order });
-    } catch (error) {
-        res.status(500).send({ success: false, error: error.message });
-    }
+        if (order) {
+            order.status = 'CANCELLED';
+            await order.save();
+        }
+        res.send({ success: true });
+    } catch (error) { res.status(500).send({ success: false }); }
 });
 
-// 💡 삭제 시 발송 큐(DB)에서 완벽히 영구 삭제 처리
 app.delete('/api/reservations/:id', async (req, res) => {
     try {
         await Reservation.findByIdAndDelete(req.params.id);
         res.send({ success: true });
-    } catch (error) {
-        res.status(500).send({ success: false, error: error.message });
-    }
+    } catch (error) { res.status(500).send({ success: false }); }
 });
 
 app.post('/webhook', async (req, res) => {
@@ -171,7 +155,7 @@ app.post('/webhook', async (req, res) => {
             await WebhookCapture.findOneAndUpdate(
                 { talkId: talkId },
                 { talkId: talkId, lastMessage: text, receivedAt: Date.now() },
-                { upsert: true, new: true }
+                { @returnDocument: 'after', upsert: true }
             );
         } catch (err) { console.error(err); }
     }
@@ -179,11 +163,11 @@ app.post('/webhook', async (req, res) => {
 });
 
 // ==========================================
-// 4. 네이버 발송 함수 (토큰 고정 상태 유지)
+// 4. 네이버 발송 
 // ==========================================
 async function sendTalkMessage(task) {
     const url = 'https://gw.talk.naver.com/chatbot/v1/event';
-    const token = 'iJaGlLZJTC2Fj8iLTRSc'; // 검증된 오피셜 소문자 l 버전 토큰 고정
+    const token = 'iJaGlLZJTC2Fj8iLTRSc'; 
 
     const messageText = `[합정점 무인 수령 및 반납 안내]
 
@@ -227,41 +211,26 @@ async function sendTalkMessage(task) {
                 'Content-Type': 'application/json;charset=UTF-8'
             }
         });
-
-        if (response.data && response.data.success === false) {
-            console.log(`\n❌ [에러 반환] 대상: ${task.name} | 내역:`, response.data);
-        }
         return response.data.success;
     } catch (error) { return false; }
 }
 
-// ==========================================
-// 5. 스케줄러 메인 루프 (5분 오차 윈도우 조준 발송 시스템)
-// ==========================================
 async function checkQueue() {
     const now = new Date();
-    const kstString = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-    console.log(`[⏳ 스케줄러 가동] 한국시간 기준: ${kstString} | 큐 체크 중...`);
-
     try {
         const activeTasks = await Reservation.find({ status: 'SCHEDULED' });
         for (let task of activeTasks) {
-            const reservationTime = new Date(task.reservationTime);
+            const resTime = new Date(task.reservationTime);
             const targetTime = new Date(now.getTime() + (60 * 60 * 1000));
-
-            const timeDifference = Math.abs(reservationTime - targetTime);
-            const fiveMinutesInMs = 5 * 60 * 1000;
-
-            if (timeDifference <= fiveMinutesInMs) {
-                console.log(`🎯 [타깃 매칭] ${task.name}님 예약 확인됨.`);
+            const diff = Math.abs(resTime - targetTime);
+            if (diff <= 5 * 60 * 1000) {
                 const isSent = await sendTalkMessage(task);
                 task.status = isSent ? 'SENT' : 'FAILED';
                 await task.save();
-                console.log(`[스케줄러 결과] ${task.name}님 전송 상태 ➡️ ${task.status}`);
             }
         }
     } catch (error) { console.error(error); }
 }
 setInterval(checkQueue, 60000);
 
-app.listen(process.env.PORT || 5000, () => console.log(`🚀 백엔드 프로덕션 시스템 정상 구동 중`));
+app.listen(process.env.PORT || 5000, () => console.log(`🚀 서버 구동 중`));

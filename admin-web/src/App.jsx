@@ -1,59 +1,51 @@
 import React, { useState, useEffect } from 'react';
 
 const styles = {
-  container: { padding: '40px 60px', backgroundColor: '#F8FAFC', minHeight: '100vh', fontFamily: "'Pretendard', -apple-system, sans-serif", color: '#0F172A' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' },
-  title: { fontSize: '32px', fontWeight: '800', color: '#1E3A8A', margin: 0 },
-  uploadWrapper: { position: 'relative', display: 'inline-block' },
-  uploadLabel: { display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#EFF6FF', color: '#2563EB', padding: '14px 24px', borderRadius: '24px', fontWeight: '700', fontSize: '15px', cursor: 'pointer', border: '2px dashed #93C5FD' },
-  fileInput: { display: 'none' }, 
-  card: { backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05)', padding: '30px' },
-  table: { width: '100%', borderCollapse: 'collapse', marginTop: '10px' },
-  th: { padding: '18px 15px', textAlign: 'center', fontWeight: '700', color: '#64748B', borderBottom: '2px solid #F1F5F9', fontSize: '14px' },
-  td: { padding: '20px 15px', borderBottom: '1px solid #F8FAFC', textAlign: 'center', fontSize: '15px', color: '#334155' },
+  container: { padding: '24px 32px', backgroundColor: '#F1F5F9', minHeight: '100vh', fontFamily: "'Pretendard', sans-serif", color: '#1E293B' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' },
+  title: { fontSize: '24px', fontWeight: '900', color: '#1E40AF', margin: 0, letterSpacing: '-0.5px' },
+  uploadLabel: { 
+    display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#2563EB', color: '#fff', 
+    padding: '10px 16px', borderRadius: '10px', fontWeight: '700', fontSize: '13px', cursor: 'pointer'
+  },
+  fileInput: { display: 'none' },
+  card: { backgroundColor: '#fff', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', padding: '20px' },
+  // 💡 가로 스크롤 완전 제거 + 완벽한 원화면 압축 픽스드 스타일 구조화
+  table: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }, 
+  th: { padding: '12px 6px', borderBottom: '2px solid #E2E8F0', color: '#64748B', fontWeight: '700', fontSize: '13px', textAlign: 'center', whiteSpace: 'nowrap' },
+  td: { padding: '12px 6px', borderBottom: '1px solid #F1F5F9', fontSize: '13px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   badge: (status) => ({
-    padding: '8px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '700', color: '#fff', display: 'inline-block',
-    backgroundColor: status === 'SENT' ? '#10B981' : status === 'SCHEDULED' ? '#3B82F6' : status === 'CANCELLED' ? '#F43F5E' : '#94A3B8'
+    padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800', color: '#fff', display: 'inline-block',
+    backgroundColor: status === 'SENT' ? '#10B981' : status === 'SCHEDULED' ? '#3B82F6' : status === 'CANCELLED' ? '#EF4444' : '#64748B'
   }),
-  btnPrimary: { backgroundColor: '#2563EB', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', fontSize: '13px' },
-  btnWarning: { backgroundColor: '#F59E0B', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', fontSize: '13px' },
-  btnCancel: { backgroundColor: '#FFF1F2', color: '#E11D48', border: 'none', padding: '8px 16px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', marginLeft: '6px', fontSize: '13px' },
-  btnDelete: { backgroundColor: '#F1F5F9', color: '#64748B', border: '1px solid #CBD5E1', padding: '8px 16px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', marginLeft: '6px', fontSize: '13px' },
-  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-  modalContent: { backgroundColor: '#FFFFFF', padding: '40px', borderRadius: '32px', width: '500px' },
-  chatItem: { display: 'flex', flexDirection: 'column', gap: '10px', padding: '18px', borderRadius: '16px', backgroundColor: '#F8FAFC', marginBottom: '12px', border: '1px solid #E2E8F0' },
-  // 검색창 컴포넌트 전용 스타일 추가
-  searchInput: { width: '100%', padding: '12px 16px', borderRadius: '14px', border: '1px solid #CBD5E1', marginBottom: '20px', boxSizing: 'border-box', fontSize: '14px', outline: 'none', fontFamily: 'inherit' }
+  actionBtn: (color) => ({
+    padding: '4px 8px', borderRadius: '6px', border: 'none', fontWeight: '700', fontSize: '11px', cursor: 'pointer',
+    backgroundColor: color === 'blue' ? '#EFF6FF' : color === 'red' ? '#FEF2F2' : '#F8FAFC',
+    color: color === 'blue' ? '#2563EB' : color === 'red' ? '#DC2626' : '#64748B',
+    border: `1px solid ${color === 'blue' ? '#BFDBFE' : color === 'red' ? '#FECACA' : '#E2E8F0'}`,
+    margin: '0 1px'
+  }),
+  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
+  modalContent: { backgroundColor: '#fff', padding: '24px', borderRadius: '20px', width: '420px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' },
+  scrollArea: { maxHeight: '340px', overflowY: 'auto', paddingRight: '4px', marginTop: '12px' }, 
+  chatItem: { backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '10px', marginBottom: '8px', border: '1px solid #E2E8F0' },
+  searchInput: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #CBD5E1', marginBottom: '8px', outline: 'none', fontSize: '13px' }
 };
 
-const translateStatus = (status) => {
-  switch(status) {
-    case 'READY': return '대기중';
-    case 'SCHEDULED': return '발송예약';
-    case 'SENT': return '발송완료';
-    case 'FAILED': return '발송실패';
-    case 'CANCELLED': return '예약취소';
-    default: return status;
-  }
-};
+const statusMap = { READY: '대기중', SCHEDULED: '발송예약', SENT: '발송완료', FAILED: '실패', CANCELLED: '취소됨' };
 
 function App() {
   const [reservedList, setReservedList] = useState([]);
   const [activePopupUser, setActivePopupUser] = useState(null);
   const [webhookList, setWebhookList] = useState([]);
-  const [searchTerm, setSearchTerm] = useState(''); // 💡 UX 개선을 위한 내부 검색어 상태 추가
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const BACKEND_URL = 'https://haewoo-talk-auto.onrender.com'; 
+  const BACKEND_URL = 'https://haewoo-talk-auto.onrender.com';
 
-  // 🔄 [수정] 5초 주기 실시간 자동 데이터 동기화(Polling) 시스템 장착
   useEffect(() => { 
-    fetchReservations(); 
-
-    const liveTimer = setInterval(() => {
-      fetchReservations();
-    }, 5000); // 5초마다 새로고침 없이 백엔드 발송 상태 감시 및 수신
-
-    return () => clearInterval(liveTimer); // 언마운트 시 메모리 누수 방지 리셋
+    fetchReservations();
+    const timer = setInterval(fetchReservations, 5000);
+    return () => clearInterval(timer);
   }, []);
 
   const fetchReservations = async () => {
@@ -61,7 +53,7 @@ function App() {
       const res = await fetch(`${BACKEND_URL}/api/reservations`);
       const data = await res.json();
       setReservedList(data);
-    } catch (err) { console.error(err); }
+    } catch (e) {}
   };
 
   const handleJsonUpload = async (e) => {
@@ -70,147 +62,132 @@ function App() {
 
     const reader = new FileReader();
     reader.onload = async (event) => {
-      let extractedUsers = [];
+      let extracted = [];
       try {
-        const parsedData = JSON.parse(event.target.result);
-        if (!parsedData.lockers) return alert('올바른 파일이 아닙니다.');
+        const data = JSON.parse(event.target.result);
+        const uniqueCombinedSet = new Set(); 
 
-        const phoneSet = new Set(); 
-        for (const lockerId in parsedData.lockers) {
-          const items = parsedData.lockers[lockerId];
-          if (!items || !Array.isArray(items)) continue;
-          
-          for (const item of items) {
-            if (item.status === 'reserved' && !phoneSet.has(item.contact)) {
-                phoneSet.add(item.contact);
-                const dateTimeStr = `${item.startDate}T${item.startTime}:00+09:00`;
-                
-                extractedUsers.push({
+        for (const lockerKey in data.lockers) {
+          const items = data.lockers[lockerKey];
+          if (!Array.isArray(items)) continue;
+
+          items.forEach(item => {
+            if (item.status === 'reserved' && item.contact) {
+              
+              // 💡 [시간 누락 완전 방어막] 시작 날짜나 시작 시간이 비어있는 불량 데이터는 스킵 처리!
+              if (!item.startDate || !item.startTime || item.startTime.trim() === "") return;
+
+              const combinedKey = `${item.contact}_${lockerKey}`;
+
+              if (!uniqueCombinedSet.has(combinedKey)) {
+                uniqueCombinedSet.add(combinedKey);
+                const dt = `${item.startDate}T${item.startTime}:00+09:00`;
+                extracted.push({
                   name: item.name,
                   phone: item.contact,
-                  reservationTime: dateTimeStr,
-                  lockerId: lockerId, 
-                  pw: item.pw         
+                  reservationTime: dt,
+                  lockerId: lockerKey, 
+                  pw: item.pw
                 });
+              }
             }
-          }
+          });
         }
-      } catch (err) { return alert('JSON 해석 오류'); }
+      } catch (err) { return alert('파일 해석 실패'); }
 
-      if (extractedUsers.length === 0) return alert('대기 고객이 없습니다.');
+      if (extracted.length === 0) return alert('불러올 예약 데이터가 없습니다. (시간 누락 데이터 점검 요망)');
 
       try {
         const res = await fetch(`${BACKEND_URL}/api/reservations/upload`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(extractedUsers)
+          body: JSON.stringify(extracted)
         });
         const result = await res.json();
-        // 💡 백엔드에서 반환한 스마트 병합 완료 데이터를 토대로 화면 단 즉각 드로잉 처리
-        if (result.success) {
-          setReservedList(result.data);
-          alert('예약 명단이 정상적으로 반영 및 동기화되었습니다.');
-        }
-      } catch (err) { alert('서버 연결 실패'); }
+        if (result.success) setReservedList(result.data);
+      } catch (e) { alert('서버 연결 실패'); }
     };
     reader.readAsText(file);
     e.target.value = null;
   };
 
-  const openMappingPopup = async (user) => {
-    setSearchTerm(''); // 팝업창을 열 때 기존 검색 기록 클리어
+  const openPopup = async (user) => {
     setActivePopupUser(user);
+    setSearchTerm('');
     const res = await fetch(`${BACKEND_URL}/api/webhook-captures`);
     const data = await res.json();
     setWebhookList(data);
   };
 
-  const connectTalkId = async (talkId) => {
-    const res = await fetch(`${BACKEND_URL}/api/scheduler/register`, {
+  const connectId = async (tid) => {
+    await fetch(`${BACKEND_URL}/api/scheduler/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: activePopupUser._id, talkId: talkId })
+      body: JSON.stringify({ id: activePopupUser._id, talkId: tid })
     });
-    const result = await res.json();
-    if (result.success) {
-      setActivePopupUser(null);
+    setActivePopupUser(null);
+    fetchReservations();
+  };
+
+  const cancelTask = async (id) => {
+    if (window.confirm('발송 예약을 취소하시겠습니까?')) {
+      await fetch(`${BACKEND_URL}/api/reservations/${id}/cancel`, { method: 'POST' });
       fetchReservations();
     }
   };
 
-  const cancelTask = async (id) => {
-    if (!window.confirm('발송 예약을 취소할까요?')) return;
-    await fetch(`${BACKEND_URL}/api/reservations/${id}/cancel`, { method: 'POST' });
-    fetchReservations();
-  };
-
   const deleteTask = async (id) => {
-    if (!window.confirm('이 예약을 명단에서 완전히 삭제하시겠습니까?')) return;
-    const res = await fetch(`${BACKEND_URL}/api/reservations/${id}`, { method: 'DELETE' });
-    const result = await res.json();
-    if (result.success) {
-      // 💡 삭제 즉시 화면에서 행을 날려주어 극상의 반응성 제공
-      setReservedList(prev => prev.filter(item => item._id !== id));
+    if (window.confirm('명단에서 완전히 삭제하시겠습니까?')) {
+      await fetch(`${BACKEND_URL}/api/reservations/${id}`, { method: 'DELETE' });
+      fetchReservations();
     }
   };
 
-  // 💡 [수정] 대화 내용 기반의 실시간 프론트엔드 필터링 서치 엔진 정의
-  const filteredWebhooks = webhookList.filter(chat => 
-    chat.lastMessage.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredWebhook = webhookList.filter(c => c.lastMessage.includes(searchTerm));
 
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <h1 style={styles.title}>Haewoo AutoDesk</h1>
-        <div style={styles.uploadWrapper}>
-          <label htmlFor="jsonUpload" style={styles.uploadLabel}>☁️ 명단 업로드</label>
-          <input id="jsonUpload" type="file" accept=".json" onChange={handleJsonUpload} style={styles.fileInput} />
-        </div>
+        <h1 style={styles.title}>Haewoo Auto Schedule (합정점)</h1>
+        <label style={styles.uploadLabel}>
+          <span>📤 명단 업로드</span>
+          <input type="file" accept=".json" onChange={handleJsonUpload} style={styles.fileInput} />
+        </label>
       </header>
 
       <div style={styles.card}>
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={styles.th}>고객명</th>
-              <th style={styles.th}>연락처</th>
-              <th style={styles.th}>예약 시간</th>
-              <th style={styles.th}>보관함/비번</th>
-              <th style={styles.th}>톡톡 ID</th>
-              <th style={styles.th}>상태</th>
-              <th style={styles.th}>관리 액션</th>
+              {/* 💡 비율 칼각 할당으로 절대 줄바꿈이나 영역 깨짐이 나지 않도록 정밀 밸런싱 */}
+              <th style={{...styles.th, width: '10%'}}>고객명</th>
+              <th style={{...styles.th, width: '15%'}}>연락처</th>
+              <th style={{...styles.th, width: '22%'}}>예약 시간</th>
+              <th style={{...styles.th, width: '13%'}}>보관함(비번)</th>
+              <th style={{...styles.th, width: '15%'}}>톡톡 ID</th>
+              <th style={{...styles.th, width: '10%'}}>상태</th>
+              <th style={{...styles.th, width: '15%'}}>관리</th>
             </tr>
           </thead>
           <tbody>
-            {reservedList.map((user) => (
-              <tr key={user._id}>
-                <td style={{...styles.td, fontWeight: '800'}}>{user.name}</td>
-                <td style={styles.td}>{user.phone}</td>
-                <td style={styles.td}>{new Date(user.reservationTime).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
-                <td style={styles.td}>{user.lockerId} ({user.pw})</td>
-                <td style={styles.td}>
-                  {user.talkId ? (
-                    <span style={{color: '#334155', fontWeight: '600', fontSize: '13px', whiteSpace: 'nowrap'}}>
-                      {user.talkId.substring(0, 15)}...
-                    </span>
-                  ) : (
-                    <span style={{color: '#94A3B8', fontSize: '13px'}}>미연동</span>
-                  )}
+            {reservedList.map(u => (
+              <tr key={u._id}>
+                <td style={{...styles.td, fontWeight: '800'}}>{u.name || '이름없음'}</td>
+                <td style={styles.td}>{u.phone}</td>
+                <td style={styles.td}>{new Date(u.reservationTime).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                <td style={{...styles.td, fontWeight: '600'}}>{u.lockerId}번 ({u.pw})</td>
+                <td style={{...styles.td, fontSize: '12px', color: '#64748B'}} title={u.talkId}>
+                  {u.talkId ? u.talkId.substring(0, 12) + '...' : '미연동'}
                 </td>
                 <td style={styles.td}>
-                  <span style={styles.badge(user.status)}>{translateStatus(user.status)}</span>
+                  <span style={styles.badge(u.status)}>{statusMap[u.status]}</span>
                 </td>
                 <td style={styles.td}>
-                  {user.status !== 'SENT' && (
-                    <button onClick={() => openMappingPopup(user)} style={user.talkId ? styles.btnWarning : styles.btnPrimary}>
-                      {user.talkId ? 'ID 변경' : 'ID 연결'}
-                    </button>
+                  {u.status !== 'SENT' && (
+                    <button onClick={() => openPopup(u)} style={styles.actionBtn('blue')}>{u.talkId ? '변경' : '연결'}</button>
                   )}
-                  {user.status === 'SCHEDULED' && (
-                    <button onClick={() => cancelTask(user._id)} style={styles.btnCancel}>취소</button>
-                  )}
-                  <button onClick={() => deleteTask(user._id)} style={styles.btnDelete}>삭제</button>
+                  {u.status === 'SCHEDULED' && <button onClick={() => cancelTask(u._id)} style={styles.actionBtn('red')}>취소</button>}
+                  <button onClick={() => deleteTask(u._id)} style={styles.actionBtn('gray')}>삭제</button>
                 </td>
               </tr>
             ))}
@@ -221,34 +198,25 @@ function App() {
       {activePopupUser && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
-            <h2 style={{color: '#1E3A8A', margin: '0 0 10px 0', fontSize: '24px'}}>수동 ID 매칭</h2>
-            <p style={{color: '#64748B', marginBottom: '20px'}}>대상: <strong>{activePopupUser.name}</strong></p>
-            
-            {/* 💡 [신규 구현] 팝업창 전용 실시간 검색창 컴포넌트 마운트 */}
+            <h3 style={{marginTop: 0, color: '#1E40AF', fontSize: '16px'}}>고객 ID 매칭: {activePopupUser.name}</h3>
             <input 
-              type="text" 
-              placeholder="🔍 고객 대화 내용 또는 키워드 검색..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={styles.searchInput}
+              style={styles.searchInput} 
+              placeholder="🔍 메시지 내용 검색..." 
+              value={searchTerm} 
+              onChange={e => setSearchTerm(e.target.value)}
             />
-            
-            <div style={{maxHeight: '400px', overflowY: 'auto', marginBottom: '20px'}}>
-              {filteredWebhooks.length === 0 ? (
-                <p style={{textAlign: 'center', padding: '40px', color: '#94A3B8'}}>일치하는 대화 내역이 없습니다.</p>
-              ) : (
-                filteredWebhooks.map(chat => (
-                  <div key={chat._id} style={styles.chatItem}>
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                      <span style={{fontSize: '12px', color: '#94A3B8'}}>{new Date(chat.receivedAt).toLocaleTimeString()}</span>
-                      <button onClick={() => connectTalkId(chat.talkId)} style={styles.btnPrimary}>선택</button>
-                    </div>
-                    <div style={{fontWeight: '500', color: '#334155'}}>{chat.lastMessage}</div>
+            <div style={styles.scrollArea}>
+              {filteredWebhook.map(c => (
+                <div key={c._id} style={styles.chatItem}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <span style={{fontSize: '11px', color: '#94A3B8'}}>{new Date(c.receivedAt).toLocaleTimeString()}</span>
+                    <button onClick={() => connectId(c.talkId)} style={styles.actionBtn('blue')}>매칭</button>
                   </div>
-                ))
-              )}
+                  <div style={{marginTop: '6px', fontSize: '13px', fontWeight: '500'}}>{c.lastMessage}</div>
+                </div>
+              ))}
             </div>
-            <button onClick={() => setActivePopupUser(null)} style={{width: '100%', padding: '16px', borderRadius: '16px', border: 'none', background: '#F1F5F9', cursor: 'pointer', fontWeight: '800'}}>닫기</button>
+            <button onClick={() => setActivePopupUser(null)} style={{width: '100%', marginTop: '16px', padding: '10px', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', background: '#F1F5F9', fontSize: '13px'}}>닫기</button>
           </div>
         </div>
       )}

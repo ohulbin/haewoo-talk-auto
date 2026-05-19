@@ -21,10 +21,11 @@ const styles = {
   btnDelete: { backgroundColor: '#F1F5F9', color: '#64748B', border: '1px solid #CBD5E1', padding: '8px 16px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', marginLeft: '6px', fontSize: '13px' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
   modalContent: { backgroundColor: '#FFFFFF', padding: '40px', borderRadius: '32px', width: '500px' },
-  chatItem: { display: 'flex', flexDirection: 'column', gap: '10px', padding: '18px', borderRadius: '16px', backgroundColor: '#F8FAFC', marginBottom: '12px', border: '1px solid #E2E8F0' }
+  chatItem: { display: 'flex', flexDirection: 'column', gap: '10px', padding: '18px', borderRadius: '16px', backgroundColor: '#F8FAFC', marginBottom: '12px', border: '1px solid #E2E8F0' },
+  // 검색창 컴포넌트 전용 스타일 추가
+  searchInput: { width: '100%', padding: '12px 16px', borderRadius: '14px', border: '1px solid #CBD5E1', marginBottom: '20px', boxSizing: 'border-box', fontSize: '14px', outline: 'none', fontFamily: 'inherit' }
 };
 
-// 💡 상태값을 한국어로 변환하는 헬퍼 함수
 const translateStatus = (status) => {
   switch(status) {
     case 'READY': return '대기중';
@@ -40,10 +41,20 @@ function App() {
   const [reservedList, setReservedList] = useState([]);
   const [activePopupUser, setActivePopupUser] = useState(null);
   const [webhookList, setWebhookList] = useState([]);
+  const [searchTerm, setSearchTerm] = useState(''); // 💡 UX 개선을 위한 내부 검색어 상태 추가
 
   const BACKEND_URL = 'https://haewoo-talk-auto.onrender.com'; 
 
-  useEffect(() => { fetchReservations(); }, []);
+  // 🔄 [수정] 5초 주기 실시간 자동 데이터 동기화(Polling) 시스템 장착
+  useEffect(() => { 
+    fetchReservations(); 
+
+    const liveTimer = setInterval(() => {
+      fetchReservations();
+    }, 5000); // 5초마다 새로고침 없이 백엔드 발송 상태 감시 및 수신
+
+    return () => clearInterval(liveTimer); // 언마운트 시 메모리 누수 방지 리셋
+  }, []);
 
   const fetchReservations = async () => {
     try {
@@ -72,8 +83,6 @@ function App() {
           for (const item of items) {
             if (item.status === 'reserved' && !phoneSet.has(item.contact)) {
                 phoneSet.add(item.contact);
-                
-                // 💡 [타임존 핵심 해결] 한국 시간(+09:00)임을 서버에 강제로 명시!
                 const dateTimeStr = `${item.startDate}T${item.startTime}:00+09:00`;
                 
                 extractedUsers.push({
@@ -97,7 +106,11 @@ function App() {
           body: JSON.stringify(extractedUsers)
         });
         const result = await res.json();
-        if (result.success) setReservedList(result.data);
+        // 💡 백엔드에서 반환한 스마트 병합 완료 데이터를 토대로 화면 단 즉각 드로잉 처리
+        if (result.success) {
+          setReservedList(result.data);
+          alert('예약 명단이 정상적으로 반영 및 동기화되었습니다.');
+        }
       } catch (err) { alert('서버 연결 실패'); }
     };
     reader.readAsText(file);
@@ -105,6 +118,7 @@ function App() {
   };
 
   const openMappingPopup = async (user) => {
+    setSearchTerm(''); // 팝업창을 열 때 기존 검색 기록 클리어
     setActivePopupUser(user);
     const res = await fetch(`${BACKEND_URL}/api/webhook-captures`);
     const data = await res.json();
@@ -130,12 +144,20 @@ function App() {
     fetchReservations();
   };
 
-  // 💡 [신규 추가] 데이터를 UI와 DB에서 통째로 날려버리는 기능
   const deleteTask = async (id) => {
-    if (!window.confirm('이 예약을 명단에서 완전히 삭제하시겠습니까? (장부 데이터는 유지됩니다)')) return;
-    await fetch(`${BACKEND_URL}/api/reservations/${id}`, { method: 'DELETE' });
-    fetchReservations();
+    if (!window.confirm('이 예약을 명단에서 완전히 삭제하시겠습니까?')) return;
+    const res = await fetch(`${BACKEND_URL}/api/reservations/${id}`, { method: 'DELETE' });
+    const result = await res.json();
+    if (result.success) {
+      // 💡 삭제 즉시 화면에서 행을 날려주어 극상의 반응성 제공
+      setReservedList(prev => prev.filter(item => item._id !== id));
+    }
   };
+
+  // 💡 [수정] 대화 내용 기반의 실시간 프론트엔드 필터링 서치 엔진 정의
+  const filteredWebhooks = webhookList.filter(chat => 
+    chat.lastMessage.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div style={styles.container}>
@@ -166,10 +188,7 @@ function App() {
                 <td style={{...styles.td, fontWeight: '800'}}>{user.name}</td>
                 <td style={styles.td}>{user.phone}</td>
                 <td style={styles.td}>{new Date(user.reservationTime).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
-                
-                {/* 💡 이모지, 방 글자 삭제 및 심플 텍스트 반영 */}
                 <td style={styles.td}>{user.lockerId} ({user.pw})</td>
-                
                 <td style={styles.td}>
                   {user.talkId ? (
                     <span style={{color: '#334155', fontWeight: '600', fontSize: '13px', whiteSpace: 'nowrap'}}>
@@ -191,7 +210,6 @@ function App() {
                   {user.status === 'SCHEDULED' && (
                     <button onClick={() => cancelTask(user._id)} style={styles.btnCancel}>취소</button>
                   )}
-                  {/* 💡 우측 끝에 삭제 버튼 추가 */}
                   <button onClick={() => deleteTask(user._id)} style={styles.btnDelete}>삭제</button>
                 </td>
               </tr>
@@ -204,13 +222,22 @@ function App() {
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
             <h2 style={{color: '#1E3A8A', margin: '0 0 10px 0', fontSize: '24px'}}>수동 ID 매칭</h2>
-            <p style={{color: '#64748B', marginBottom: '25px'}}>대상: <strong>{activePopupUser.name}</strong></p>
+            <p style={{color: '#64748B', marginBottom: '20px'}}>대상: <strong>{activePopupUser.name}</strong></p>
+            
+            {/* 💡 [신규 구현] 팝업창 전용 실시간 검색창 컴포넌트 마운트 */}
+            <input 
+              type="text" 
+              placeholder="🔍 고객 대화 내용 또는 키워드 검색..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={styles.searchInput}
+            />
             
             <div style={{maxHeight: '400px', overflowY: 'auto', marginBottom: '20px'}}>
-              {webhookList.length === 0 ? (
-                <p style={{textAlign: 'center', padding: '40px', color: '#94A3B8'}}>수집된 대화가 없습니다.</p>
+              {filteredWebhooks.length === 0 ? (
+                <p style={{textAlign: 'center', padding: '40px', color: '#94A3B8'}}>일치하는 대화 내역이 없습니다.</p>
               ) : (
-                webhookList.map(chat => (
+                filteredWebhooks.map(chat => (
                   <div key={chat._id} style={styles.chatItem}>
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                       <span style={{fontSize: '12px', color: '#94A3B8'}}>{new Date(chat.receivedAt).toLocaleTimeString()}</span>

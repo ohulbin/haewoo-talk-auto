@@ -10,7 +10,6 @@ const styles = {
   },
   fileInput: { display: 'none' },
   card: { backgroundColor: '#fff', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', padding: '20px' },
-  // 💡 가로 스크롤 완전 제거 + 완벽한 원화면 압축 픽스드 스타일 구조화
   table: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }, 
   th: { padding: '12px 6px', borderBottom: '2px solid #E2E8F0', color: '#64748B', fontWeight: '700', fontSize: '13px', textAlign: 'center', whiteSpace: 'nowrap' },
   td: { padding: '12px 6px', borderBottom: '1px solid #F1F5F9', fontSize: '13px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
@@ -29,12 +28,27 @@ const styles = {
   modalContent: { backgroundColor: '#fff', padding: '24px', borderRadius: '20px', width: '420px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' },
   scrollArea: { maxHeight: '340px', overflowY: 'auto', paddingRight: '4px', marginTop: '12px' }, 
   chatItem: { backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '10px', marginBottom: '8px', border: '1px solid #E2E8F0' },
-  searchInput: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #CBD5E1', marginBottom: '8px', outline: 'none', fontSize: '13px' }
+  searchInput: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #CBD5E1', marginBottom: '8px', outline: 'none', fontSize: '13px' },
+  
+  // 💡 [신규] 로그인 페이지 전용 스타일
+  loginContainer: { height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#F1F5F9', fontFamily: "'Pretendard', sans-serif" },
+  loginBox: { backgroundColor: '#fff', padding: '40px', borderRadius: '24px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', width: '320px', display: 'flex', flexDirection: 'column', gap: '16px' },
+  inputField: { padding: '14px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none' },
+  loginBtn: { padding: '14px', borderRadius: '12px', backgroundColor: '#2563EB', color: '#fff', border: 'none', fontWeight: '800', fontSize: '15px', cursor: 'pointer', marginTop: '10px' },
+  checkboxRow: { display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748B', alignItems: 'center' }
 };
 
 const statusMap = { READY: '대기중', SCHEDULED: '발송예약', SENT: '발송완료', FAILED: '실패', CANCELLED: '취소됨' };
 
 function App() {
+  // --- Auth States ---
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginId, setLoginId] = useState('');
+  const [loginPw, setLoginPw] = useState('');
+  const [saveId, setSaveId] = useState(false);
+  const [autoLogin, setAutoLogin] = useState(false);
+
+  // --- Data States ---
   const [reservedList, setReservedList] = useState([]);
   const [activePopupUser, setActivePopupUser] = useState(null);
   const [webhookList, setWebhookList] = useState([]);
@@ -42,11 +56,51 @@ function App() {
 
   const BACKEND_URL = 'https://haewoo-talk-auto.onrender.com';
 
+  // 💡 [신규] 초기 로드 시 자동로그인 및 아이디 저장 체크
+  useEffect(() => {
+    const isAuto = localStorage.getItem('hw_autoLogin') === 'true';
+    const saved = localStorage.getItem('hw_savedId');
+    
+    if (saved) {
+      setLoginId(saved);
+      setSaveId(true);
+    }
+    if (isAuto) {
+      setIsAuthenticated(true);
+      setAutoLogin(true);
+    }
+  }, []);
+
+  // 대시보드 진입 후 주기적 데이터 페칭
   useEffect(() => { 
+    if (!isAuthenticated) return;
+    
     fetchReservations();
     const timer = setInterval(fetchReservations, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isAuthenticated]);
+
+  const handleLoginSubmit = (e) => {
+    e.preventDefault();
+    if (loginId === 'haewoo' && loginPw === 'haewoo12!') {
+      setIsAuthenticated(true);
+      
+      if (saveId) localStorage.setItem('hw_savedId', loginId);
+      else localStorage.removeItem('hw_savedId');
+
+      if (autoLogin) localStorage.setItem('hw_autoLogin', 'true');
+      else localStorage.removeItem('hw_autoLogin');
+      
+    } else {
+      alert('아이디 또는 비밀번호가 올바르지 않습니다.');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setLoginPw('');
+    localStorage.removeItem('hw_autoLogin');
+  };
 
   const fetchReservations = async () => {
     try {
@@ -73,8 +127,6 @@ function App() {
 
           items.forEach(item => {
             if (item.status === 'reserved' && item.contact) {
-              
-              // 💡 [시간 누락 완전 방어막] 시작 날짜나 시작 시간이 비어있는 불량 데이터는 스킵 처리!
               if (!item.startDate || !item.startTime || item.startTime.trim() === "") return;
 
               const combinedKey = `${item.contact}_${lockerKey}`;
@@ -111,12 +163,16 @@ function App() {
     e.target.value = null;
   };
 
-  const openPopup = async (user) => {
-    setActivePopupUser(user);
-    setSearchTerm('');
+  const fetchWebhookList = async () => {
     const res = await fetch(`${BACKEND_URL}/api/webhook-captures`);
     const data = await res.json();
     setWebhookList(data);
+  };
+
+  const openPopup = (user) => {
+    setActivePopupUser(user);
+    setSearchTerm('');
+    fetchWebhookList();
   };
 
   const connectId = async (tid) => {
@@ -127,6 +183,14 @@ function App() {
     });
     setActivePopupUser(null);
     fetchReservations();
+  };
+
+  // 💡 [신규] 웹훅 삭제 및 팝업창 실시간 리렌더링
+  const deleteWebhook = async (id) => {
+    if (window.confirm('이 문의 내역을 수신함에서 영구 삭제하시겠습니까?')) {
+      await fetch(`${BACKEND_URL}/api/webhook-captures/${id}`, { method: 'DELETE' });
+      fetchWebhookList(); // 팝업창 닫지 않고 리스트만 즉시 새로고침
+    }
   };
 
   const cancelTask = async (id) => {
@@ -145,10 +209,46 @@ function App() {
 
   const filteredWebhook = webhookList.filter(c => c.lastMessage.includes(searchTerm));
 
+  // ------------------ 렌더링 영역 ------------------ //
+
+  // 로그인되지 않은 상태면 로그인 폼 렌더링
+  if (!isAuthenticated) {
+    return (
+      <div style={styles.loginContainer}>
+        <form style={styles.loginBox} onSubmit={handleLoginSubmit}>
+        <h2 style={{ color: '#1E40AF', textAlign: 'center', margin: '0 0 10px 0', fontWeight: 'bold' }}>Haewoo Auto Schedule</h2>
+          <input 
+            type="text" placeholder="아이디" style={styles.inputField} 
+            value={loginId} onChange={e => setLoginId(e.target.value)} required 
+          />
+          <input 
+            type="password" placeholder="비밀번호" style={styles.inputField} 
+            value={loginPw} onChange={e => setLoginPw(e.target.value)} required 
+          />
+          <div style={styles.checkboxRow}>
+            <label style={{display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer'}}>
+              <input type="checkbox" checked={saveId} onChange={e => setSaveId(e.target.checked)} />
+              아이디 저장
+            </label>
+            <label style={{display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer'}}>
+              <input type="checkbox" checked={autoLogin} onChange={e => setAutoLogin(e.target.checked)} />
+              자동 로그인
+            </label>
+          </div>
+          <button type="submit" style={styles.loginBtn}>로그인</button>
+        </form>
+      </div>
+    );
+  }
+
+  // 로그인 성공 시 대시보드 렌더링
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <h1 style={styles.title}>Haewoo Auto Schedule (합정점)</h1>
+        <div style={{display: 'flex', alignItems: 'baseline', gap: '16px'}}>
+          <h1 style={styles.title}>Haewoo Auto Schedule (합정점)</h1>
+          <span onClick={handleLogout} style={{fontSize: '13px', color: '#64748B', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline'}}>로그아웃</span>
+        </div>
         <label style={styles.uploadLabel}>
           <span>📤 명단 업로드</span>
           <input type="file" accept=".json" onChange={handleJsonUpload} style={styles.fileInput} />
@@ -159,7 +259,6 @@ function App() {
         <table style={styles.table}>
           <thead>
             <tr>
-              {/* 💡 비율 칼각 할당으로 절대 줄바꿈이나 영역 깨짐이 나지 않도록 정밀 밸런싱 */}
               <th style={{...styles.th, width: '10%'}}>고객명</th>
               <th style={{...styles.th, width: '15%'}}>연락처</th>
               <th style={{...styles.th, width: '22%'}}>예약 시간</th>
@@ -210,13 +309,17 @@ function App() {
                 <div key={c._id} style={styles.chatItem}>
                   <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                     <span style={{fontSize: '11px', color: '#94A3B8'}}>{new Date(c.receivedAt).toLocaleTimeString()}</span>
-                    <button onClick={() => connectId(c.talkId)} style={styles.actionBtn('blue')}>매칭</button>
+                    <div>
+                      {/* 💡 [신규] 매칭 버튼 옆에 회색 삭제 버튼 추가 */}
+                      <button onClick={() => connectId(c.talkId)} style={styles.actionBtn('blue')}>매칭</button>
+                      <button onClick={() => deleteWebhook(c._id)} style={styles.actionBtn('gray')}>삭제</button>
+                    </div>
                   </div>
                   <div style={{marginTop: '6px', fontSize: '13px', fontWeight: '500'}}>{c.lastMessage}</div>
                 </div>
               ))}
             </div>
-            <button onClick={() => setActivePopupUser(null)} style={{width: '100%', marginTop: '16px', padding: '10px', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', background: '#F1F5F9', fontSize: '13px'}}>닫기</button>
+            <button onClick={() => setActivePopupUser(null)} style={{width: '100%', marginTop: '16px', padding: '10px', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', background: '#282828', fontSize: '13px'}}>닫기</button>
           </div>
         </div>
       )}

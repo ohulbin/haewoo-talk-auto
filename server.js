@@ -57,26 +57,19 @@ app.get('/api/reservations', async (req, res) => {
     }
 });
 
-// 🔄 [구조 전면 혁신] 스마트 보관함 동기화 엔진 (유령 데이터 및 누락 매커니즘 해결)
 app.post('/api/reservations/upload', async (req, res) => {
     try {
         const incomingUsers = req.body; 
-
-        // 1. 이번 JSON 파일에 들어있는 보관함 번호(lockerId)들을 싹 긁어모읍니다.
         const incomingLockerIds = [...new Set(incomingUsers.map(u => u.lockerId))];
 
-        // 2. [유령 데이터 청소] 해당 보관함 번호들 중 아직 발송 안 된(READY, SCHEDULED 등) 기존 행들만 골라 지웁니다.
-        // 이미 발송 완료(SENT)된 내역은 장부 보호를 위해 절대 지우지 않습니다.
         await Reservation.deleteMany({
             lockerId: { $in: incomingLockerIds },
             status: { $ne: 'SENT' }
         });
 
-        // 3. 신규 명단을 순회하며 적재를 시작합니다.
         for (let user of incomingUsers) {
-            // 이미 동일 보관함에 동일 번호로 발송 완료(SENT)된 이력이 진짜 존재하는지 최종 체크
             const isAlreadySent = await Reservation.findOne({ phone: user.phone, lockerId: user.lockerId, status: 'SENT' });
-            if (isAlreadySent) continue; // 발송 완료된 단골은 중복 뷰 생성 방지를 위해 패스
+            if (isAlreadySent) continue; 
 
             const matchedUser = await TalkUser.findOne({ name: user.name, phone: user.phone });
             
@@ -108,6 +101,16 @@ app.get('/api/webhook-captures', async (req, res) => {
     }
 });
 
+// 💡 [신규] 웹훅(일반 문의) 개별 삭제용 API
+app.delete('/api/webhook-captures/:id', async (req, res) => {
+    try {
+        await WebhookCapture.findByIdAndDelete(req.params.id);
+        res.send({ success: true });
+    } catch (error) {
+        res.status(500).send({ success: false, error: error.message });
+    }
+});
+
 app.post('/api/scheduler/register', async (req, res) => {
     try {
         const { id, talkId } = req.body; 
@@ -121,7 +124,7 @@ app.post('/api/scheduler/register', async (req, res) => {
         await TalkUser.findOneAndUpdate(
             { phone: order.phone }, 
             { name: order.name, phone: order.phone, talkId: talkId, updatedAt: Date.now() },
-            { @returnDocument: 'after', upsert: true } // Mongoose 경고 완벽 해결 패치
+            { returnDocument: 'after', upsert: true } 
         );
         await WebhookCapture.deleteOne({ talkId });
         res.send({ success: true, data: order });
@@ -155,7 +158,7 @@ app.post('/webhook', async (req, res) => {
             await WebhookCapture.findOneAndUpdate(
                 { talkId: talkId },
                 { talkId: talkId, lastMessage: text, receivedAt: Date.now() },
-                { @returnDocument: 'after', upsert: true }
+                { returnDocument: 'after', upsert: true }
             );
         } catch (err) { console.error(err); }
     }
@@ -223,7 +226,9 @@ async function checkQueue() {
             const resTime = new Date(task.reservationTime);
             const targetTime = new Date(now.getTime() + (60 * 60 * 1000));
             const diff = Math.abs(resTime - targetTime);
-            if (diff <= 5 * 60 * 1000) {
+            
+            // 💡 [수정] 오차 범위 5분 -> 1분 30초 (90 * 1000 ms)로 조여서 중복 실행 방지
+            if (diff <= 90 * 1000) {
                 const isSent = await sendTalkMessage(task);
                 task.status = isSent ? 'SENT' : 'FAILED';
                 await task.save();

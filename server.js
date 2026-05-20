@@ -150,27 +150,24 @@ app.delete('/api/reservations/:id', async (req, res) => {
 });
 
 app.post('/webhook', async (req, res) => {
-    const eventType = req.body.event; // 'open' (채팅방 진입) 또는 'send' (메시지 전송)
+    const eventType = req.body.event; 
     const talkId = req.body.user;
     const token = 'iJaGlLZJTC2Fj8iLTRSc'; // [주의] 회사 실전 토큰으로 변경!
     const url = 'https://gw.talk.naver.com/chatbot/v1/event';
     const headers = { 'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8' };
 
-    // 💡 1. 고객이 채팅방에 최초로 들어왔을 때 (타자 치기 전 상황 제어)
+    // 💡 1. 채팅방 최초 진입 시 (open 이벤트)
     if (eventType === 'open') {
         
-        // 🛍️ [체크] 만약 고객이 특정 상품 링크를 타고 들어왔다면? (네이버 데이터 추출)
+        // 🛍️ [상품 링크 진입 감지] 
         if (req.body.options && req.body.options.product) {
-            const product = req.body.options.product; // 상품명, 가격, 이미지 URL 등이 들어있음
-            
-            // 1타: 상품 문의 고유 안내 텍스트 발송
+            const product = req.body.options.product;
             try {
                 await axios.post(url, {
                     event: "send", user: talkId,
                     textContent: { text: "상품을 문의하셨습니다.\n어떤 점이 궁금하신가요? 😊" }
                 }, { headers });
                 
-                // 2타: 네이버 순정 스타일 상품 정보 카드 발송
                 await axios.post(url, {
                     event: "send", user: talkId,
                     linkContent: {
@@ -183,7 +180,7 @@ app.post('/webhook', async (req, res) => {
             } catch (err) { console.error("상품 카드 발송 실패:", err); }
         }
 
-        // 웰컴 안내 메시지와 함께 사진 속 FAQ 캐러셀 리스트를 즉시 띄워줍니다!
+        // 📋 [FAQ 캐러셀 메뉴판 강제 렌더링] - code 속성 추가로 버튼 증발 완벽 방어
         const initialFaqPayload = {
             event: "send",
             user: talkId,
@@ -193,17 +190,17 @@ app.post('/webhook', async (req, res) => {
                         title: "해우카메라 합정점",
                         description: "24시 무인보관함 운영 / 택배X",
                         buttonList: [
-                            { type: "TEXT", name: "주문방법" },
-                            { type: "TEXT", name: "스케줄(재고) 문의" },
-                            { type: "TEXT", name: "수령/반납 방법" }
+                            { type: "TEXT", name: "주문방법", code: "주문방법" },
+                            { type: "TEXT", name: "스케줄(재고) 문의", code: "스케줄문의" },
+                            { type: "TEXT", name: "수령/반납 방법", code: "수령반납" }
                         ]
                     },
                     {
                         title: "해우카메라 합정점",
                         description: "24시 무인보관함 운영 / 택배X",
                         buttonList: [
-                            { type: "TEXT", name: "위치/영업시간" },
-                            { type: "TEXT", name: "주차안내" }
+                            { type: "TEXT", name: "위치/영업시간", code: "위치" },
+                            { type: "TEXT", name: "주차안내", code: "주차" }
                         ]
                     }
                 ]
@@ -212,12 +209,12 @@ app.post('/webhook', async (req, res) => {
 
         try {
             await axios.post(url, initialFaqPayload, { headers });
-        } catch (err) { console.error("최초 FAQ 리스트 발송 실패:", err); }
+        } catch (err) { console.error("FAQ 리스트 발송 실패:", err); }
 
         return res.send({ success: true });
     }
 
-    // 💡 2. 고객이 메시지를 보냈거나, FAQ 버튼을 딸깍 눌렀을 때
+    // 💡 2. 고객이 메시지를 전송했거나 FAQ 버튼을 눌렀을 때 (send 이벤트)
     if (eventType === 'send' && req.body.textContent) {
         const text = req.body.textContent.text.trim();
         
@@ -230,7 +227,7 @@ app.post('/webhook', async (req, res) => {
         else if (text === "주차안내") replyText = "🚗 주차 안내\n메세나폴리스 지하 주차장을 이용하시면 됩니다. 이용 고객님께는 무료 주차 등록을 지원해 드립니다.";
 
         if (replyText !== "") {
-            // 버튼 답변은 자동 응답 처리 후 관리자 수신함(DB)에 쌓지 않고 청정 구역 유지
+            // 버튼 답변은 관리자 수신함(DB)에 쌓지 않고 챗봇이 깔끔하게 응답만 수행
             try {
                 await axios.post(url, { event: "send", user: talkId, textContent: { text: replyText } }, { headers });
             } catch (err) { console.error("FAQ 답변 발송 실패:", err); }
@@ -247,7 +244,6 @@ app.post('/webhook', async (req, res) => {
     }
     res.send({ success: true });
 });
-
 // ==========================================
 // 4. 네이버 발송 
 // ==========================================

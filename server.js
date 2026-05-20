@@ -150,17 +150,100 @@ app.delete('/api/reservations/:id', async (req, res) => {
 });
 
 app.post('/webhook', async (req, res) => {
-    const eventType = req.body.event; 
+    const eventType = req.body.event; // 'open' (채팅방 진입) 또는 'send' (메시지 전송)
     const talkId = req.body.user;
+    const token = 'iJaGlLZJTC2Fj8iLTRSc'; // [주의] 회사 실전 토큰으로 변경!
+    const url = 'https://gw.talk.naver.com/chatbot/v1/event';
+    const headers = { 'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8' };
+
+    // 💡 1. 고객이 채팅방에 최초로 들어왔을 때 (타자 치기 전 상황 제어)
+    if (eventType === 'open') {
+        
+        // 🛍️ [체크] 만약 고객이 특정 상품 링크를 타고 들어왔다면? (네이버 데이터 추출)
+        if (req.body.options && req.body.options.product) {
+            const product = req.body.options.product; // 상품명, 가격, 이미지 URL 등이 들어있음
+            
+            // 1타: 상품 문의 고유 안내 텍스트 발송
+            try {
+                await axios.post(url, {
+                    event: "send", user: talkId,
+                    textContent: { text: "상품을 문의하셨습니다.\n어떤 점이 궁금하신가요? 😊" }
+                }, { headers });
+                
+                // 2타: 네이버 순정 스타일 상품 정보 카드 발송
+                await axios.post(url, {
+                    event: "send", user: talkId,
+                    linkContent: {
+                        title: product.name,
+                        description: `${Number(product.price).toLocaleString()}원`,
+                        imageUrl: product.imageUrl,
+                        linkUrl: product.url
+                    }
+                }, { headers });
+            } catch (err) { console.error("상품 카드 발송 실패:", err); }
+        }
+
+        // 웰컴 안내 메시지와 함께 사진 속 FAQ 캐러셀 리스트를 즉시 띄워줍니다!
+        const initialFaqPayload = {
+            event: "send",
+            user: talkId,
+            compositeContent: {
+                compositeList: [
+                    {
+                        title: "해우카메라 합정점",
+                        description: "24시 무인보관함 운영 / 택배X",
+                        buttonList: [
+                            { type: "TEXT", name: "주문방법" },
+                            { type: "TEXT", name: "스케줄(재고) 문의" },
+                            { type: "TEXT", name: "수령/반납 방법" }
+                        ]
+                    },
+                    {
+                        title: "해우카메라 합정점",
+                        description: "24시 무인보관함 운영 / 택배X",
+                        buttonList: [
+                            { type: "TEXT", name: "위치/영업시간" },
+                            { type: "TEXT", name: "주차안내" }
+                        ]
+                    }
+                ]
+            }
+        };
+
+        try {
+            await axios.post(url, initialFaqPayload, { headers });
+        } catch (err) { console.error("최초 FAQ 리스트 발송 실패:", err); }
+
+        return res.send({ success: true });
+    }
+
+    // 💡 2. 고객이 메시지를 보냈거나, FAQ 버튼을 딸깍 눌렀을 때
     if (eventType === 'send' && req.body.textContent) {
         const text = req.body.textContent.text.trim();
-        try {
-            await WebhookCapture.findOneAndUpdate(
-                { talkId: talkId },
-                { talkId: talkId, lastMessage: text, receivedAt: Date.now() },
-                { returnDocument: 'after', upsert: true }
-            );
-        } catch (err) { console.error(err); }
+        
+        // 미니 챗봇 FAQ 자동응답 트리거
+        let replyText = "";
+        if (text === "주문방법") replyText = "✨ 주문 방법 안내\n스마트스토어에서 원하시는 장비와 일정을 선택해 결제해 주시면 됩니다!";
+        else if (text === "스케줄(재고) 문의") replyText = "📅 재고 문의 안내\n대여를 원하시는 [장비명 / 날짜 / 시간]을 텍스트로 남겨주시면 담당자가 빠르게 확인해 드리겠습니다.";
+        else if (text === "수령/반납 방법") replyText = "📦 수령/반납 안내\n합정점은 24시간 무인 보관함으로 운영됩니다. 예약 시간 한 시간 전에 보관함 번호와 비밀번호를 톡톡으로 발송해 드립니다.";
+        else if (text === "위치/영업시간") replyText = "📍 매장 위치 및 영업시간\n- 주소: 마포구 양화로 45 메세나폴리스 116호\n- 영업시간: 무인보관함 24시간 연중무휴";
+        else if (text === "주차안내") replyText = "🚗 주차 안내\n메세나폴리스 지하 주차장을 이용하시면 됩니다. 이용 고객님께는 무료 주차 등록을 지원해 드립니다.";
+
+        if (replyText !== "") {
+            // 버튼 답변은 자동 응답 처리 후 관리자 수신함(DB)에 쌓지 않고 청정 구역 유지
+            try {
+                await axios.post(url, { event: "send", user: talkId, textContent: { text: replyText } }, { headers });
+            } catch (err) { console.error("FAQ 답변 발송 실패:", err); }
+        } else {
+            // 🚨 버튼이 아닌 진짜 고객의 수동 질문만 관리자 대시보드 팝업창에 적재!
+            try {
+                await WebhookCapture.findOneAndUpdate(
+                    { talkId: talkId },
+                    { talkId: talkId, lastMessage: text, receivedAt: Date.now() },
+                    { returnDocument: 'after', upsert: true }
+                );
+            } catch (err) { console.error(err); }
+        }
     }
     res.send({ success: true });
 });
@@ -170,7 +253,8 @@ app.post('/webhook', async (req, res) => {
 // ==========================================
 async function sendTalkMessage(task) {
     const url = 'https://gw.talk.naver.com/chatbot/v1/event';
-    const token = 'iJaGlLZJTC2Fj8iLTRSc'; 
+    const token = 'iJaGlLZJTC2Fj8iLTRSc';
+    const headers = { 'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8' };
 
     const messageText = `[합정점 무인 수령 및 반납 안내]
 
@@ -203,19 +287,69 @@ async function sendTalkMessage(task) {
 
 ☎️ 비상 연락처 : 010-4607-0732`;
 
-    try {
-        const response = await axios.post(url, {
+// 캐러셀(슬라이드) 메뉴판 데이터
+const chatbotMenuPayload = {
+    event: "send",
+    user: task.talkId,
+    compositeContent: {
+        compositeList: [
+            {
+                title: "해우카메라 합정점",
+                description: "24시 무인보관함 운영 / 택배X",
+                buttonList: [
+                    { type: "TEXT", name: "주문방법" },
+                    { type: "TEXT", name: "스케줄(재고) 문의" },
+                    { type: "TEXT", name: "수령/반납 방법" }
+                ]
+            },
+            {
+                title: "해우카메라 합정점",
+                description: "24시 무인보관함 운영 / 택배X",
+                buttonList: [
+                    { type: "TEXT", name: "위치/영업시간" },
+                    { type: "TEXT", name: "주차안내" }
+                ]
+            }
+        ]
+    }
+};
+
+try {
+    // 1타: 무인 보관함 비밀번호 문자 전송
+    const response = await axios.post(url, {
+        event: "send", user: task.talkId, textContent: { text: messageText }
+    }, { headers: headers });
+
+    // 2타: 문자 직후 하단에 FAQ 메뉴판을 콤보로 띄워주어 대화가 끊기지 않게 유도
+    if (response.data && response.data.success) {
+        await axios.post(url, {
             event: "send",
             user: task.talkId,
-            textContent: { text: messageText }
-        }, {
-            headers: {
-                'Authorization': token, 
-                'Content-Type': 'application/json;charset=UTF-8'
+            compositeContent: {
+                compositeList: [
+                    {
+                        title: "해우카메라 합정점",
+                        description: "24시 무인보관함 운영 / 택배X",
+                        buttonList: [
+                            { type: "TEXT", name: "주문방법" },
+                            { type: "TEXT", name: "스케줄(재고) 문의" },
+                            { type: "TEXT", name: "수령/반납 방법" }
+                        ]
+                    },
+                    {
+                        title: "해우카메라 합정점",
+                        description: "24시 무인보관함 운영 / 택배X",
+                        buttonList: [
+                            { type: "TEXT", name: "위치/영업시간" },
+                            { type: "TEXT", name: "주차안내" }
+                        ]
+                    }
+                ]
             }
-        });
-        return response.data.success;
-    } catch (error) { return false; }
+        }, { headers: headers });
+    }
+    return response.data.success;
+} catch (error) { return false; }
 }
 
 async function checkQueue() {

@@ -180,21 +180,32 @@ app.post('/webhook', async (req, res) => {
             } catch (err) { console.error("상품 카드 발송 실패:", err); }
         }
         
-        // 📋 [완벽 호환 FAQ 리스트] - 캐러셀(슬라이드) 폐기 및 안정적인 세로형 통합 버튼으로 변경
+        // 📋 [FAQ 캐러셀 완벽 복원] - 네이버 API 전용 버튼 규격 적용 완료
         const initialFaqPayload = {
             event: "send",
             user: talkId,
-            textContent: {
-                text: "해우카메라 합정점입니다 :)\n24시 무인보관함 운영 / 택배X\n\n궁금하신 항목을 아래 버튼에서 선택해 주세요."
-            },
-            // 💡 텍스트 말풍선 바로 밑에 버튼들이 깔끔하게 붙어서 나옵니다.
-            buttonList: [
-                { type: "TEXT", name: "주문방법", code: "주문방법" },
-                { type: "TEXT", name: "스케줄(재고) 문의", code: "스케줄(재고) 문의" },
-                { type: "TEXT", name: "수령/반납 방법", code: "수령/반납 방법" },
-                { type: "TEXT", name: "위치/영업시간", code: "위치/영업시간" },
-                { type: "TEXT", name: "주차안내", code: "주차안내" }
-            ]
+            compositeContent: {
+                compositeList: [
+                    {
+                        title: "해우카메라 합정점",
+                        description: "24시 무인보관함 운영 / 택배X",
+                        // 💡 카카오가 아닌 네이버 전용 규격(data: { title, code })으로 완벽 교체!
+                        buttonList: [
+                            { type: "TEXT", data: { title: "주문방법", code: "주문방법" } },
+                            { type: "TEXT", data: { title: "스케줄(재고) 문의", code: "스케줄(재고) 문의" } },
+                            { type: "TEXT", data: { title: "수령/반납 방법", code: "수령/반납 방법" } }
+                        ]
+                    },
+                    {
+                        title: "해우카메라 합정점",
+                        description: "24시 무인보관함 운영 / 택배X",
+                        buttonList: [
+                            { type: "TEXT", data: { title: "위치/영업시간", code: "위치/영업시간" } },
+                            { type: "TEXT", data: { title: "주차안내", code: "주차안내" } }
+                        ]
+                    }
+                ]
+            }
         };
         try {
             await axios.post(url, initialFaqPayload, { headers });

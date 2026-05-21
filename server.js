@@ -180,32 +180,21 @@ app.post('/webhook', async (req, res) => {
             } catch (err) { console.error("상품 카드 발송 실패:", err); }
         }
         
-        // 📋 [FAQ 리스트 완벽 복원] - 이미지 제거 및 필수 code 속성 100% 삽입
+        // 📋 [완벽 호환 FAQ 리스트] - 캐러셀(슬라이드) 폐기 및 안정적인 세로형 통합 버튼으로 변경
         const initialFaqPayload = {
             event: "send",
             user: talkId,
-            compositeContent: {
-                compositeList: [
-                    {
-                        title: "해우카메라 합정점",
-                        description: "24시 무인보관함 운영 / 택배X",
-                        // 💡 이미지는 뺐습니다. 오직 텍스트 리스트로만 깔끔하게 나옵니다!
-                        buttonList: [
-                            { type: "TEXT", name: "주문방법", code: "주문방법" },
-                            { type: "TEXT", name: "스케줄(재고) 문의", code: "스케줄(재고) 문의" },
-                            { type: "TEXT", name: "수령/반납 방법", code: "수령/반납 방법" }
-                        ]
-                    },
-                    {
-                        title: "해우카메라 합정점",
-                        description: "24시 무인보관함 운영 / 택배X",
-                        buttonList: [
-                            { type: "TEXT", name: "위치/영업시간", code: "위치/영업시간" },
-                            { type: "TEXT", name: "주차안내", code: "주차안내" }
-                        ]
-                    }
-                ]
-            }
+            textContent: {
+                text: "해우카메라 합정점입니다 :)\n24시 무인보관함 운영 / 택배X\n\n궁금하신 항목을 아래 버튼에서 선택해 주세요."
+            },
+            // 💡 텍스트 말풍선 바로 밑에 버튼들이 깔끔하게 붙어서 나옵니다.
+            buttonList: [
+                { type: "TEXT", name: "주문방법", code: "주문방법" },
+                { type: "TEXT", name: "스케줄(재고) 문의", code: "스케줄(재고) 문의" },
+                { type: "TEXT", name: "수령/반납 방법", code: "수령/반납 방법" },
+                { type: "TEXT", name: "위치/영업시간", code: "위치/영업시간" },
+                { type: "TEXT", name: "주차안내", code: "주차안내" }
+            ]
         };
         try {
             await axios.post(url, initialFaqPayload, { headers });

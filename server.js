@@ -179,8 +179,7 @@ app.post('/webhook', async (req, res) => {
                 }, { headers });
             } catch (err) { console.error("상품 카드 발송 실패:", err); }
         }
-
-        // 📋 [FAQ 캐러셀 메뉴판 강제 렌더링] - code 속성 추가로 버튼 증발 완벽 방어
+        
         // 📋 [FAQ 캐러셀 메뉴판 강제 렌더링] - PC버전 버튼 증발 방어용 image 강제 주입
         const initialFaqPayload = {
             event: "send",
@@ -190,10 +189,10 @@ app.post('/webhook', async (req, res) => {
                     {
                         title: "해우카메라 합정점",
                         description: "24시 무인보관함 운영 / 택배X",
-                        // 💡 [핵심] 사진이 없으면 PC에서 버튼이 깨지므로 썸네일을 무조건 넣어야 합니다!
+                        // 💡 [수정] 확장자(.png)가 명확히 포함된 안전한 이미지 URL로 교체
                         image: {
-                            imageUrl: "https://via.placeholder.com/600x400/1E3A8A/FFFFFF?text=Haewoo+Camera" // 나중에 실제 로고 이미지 주소로 변경하세요
-                        },
+                            imageUrl: "https://dummyimage.com/600x400/1E3A8A/ffffff.png&text=Haewoo+Camera"
+                            },
                         buttonList: [
                             { type: "TEXT", name: "주문방법", code: "주문방법" },
                             { type: "TEXT", name: "스케줄(재고) 문의", code: "스케줄문의" },

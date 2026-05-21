@@ -180,7 +180,7 @@ app.post('/webhook', async (req, res) => {
             } catch (err) { console.error("상품 카드 발송 실패:", err); }
         }
         
-        // 📋 [FAQ 캐러셀 메뉴판 완벽 복원] - 깔끔한 화이트 배너 이미지 삽입
+        // 📋 [FAQ 리스트 완벽 복원] - 이미지 제거 및 필수 code 속성 100% 삽입
         const initialFaqPayload = {
             event: "send",
             user: talkId,
@@ -189,25 +189,19 @@ app.post('/webhook', async (req, res) => {
                     {
                         title: "해우카메라 합정점",
                         description: "24시 무인보관함 운영 / 택배X",
-                        // 💡 하얀색 바탕에 파란색 글씨가 적힌 깔끔한 임시 배너 이미지입니다.
-                        image: {
-                            imageUrl: "https://placehold.co/800x300/FFFFFF/1E3A8A/png?text=Haewoo+Camera"
-                        },
+                        // 💡 이미지는 뺐습니다. 오직 텍스트 리스트로만 깔끔하게 나옵니다!
                         buttonList: [
-                            { type: "TEXT", name: "주문방법" },
-                            { type: "TEXT", name: "스케줄(재고) 문의" },
-                            { type: "TEXT", name: "수령/반납 방법" }
+                            { type: "TEXT", name: "주문방법", code: "주문방법" },
+                            { type: "TEXT", name: "스케줄(재고) 문의", code: "스케줄(재고) 문의" },
+                            { type: "TEXT", name: "수령/반납 방법", code: "수령/반납 방법" }
                         ]
                     },
                     {
                         title: "해우카메라 합정점",
                         description: "24시 무인보관함 운영 / 택배X",
-                        image: {
-                            imageUrl: "https://placehold.co/800x300/FFFFFF/1E3A8A/png?text=Information"
-                        },
                         buttonList: [
-                            { type: "TEXT", name: "위치/영업시간" },
-                            { type: "TEXT", name: "주차안내" }
+                            { type: "TEXT", name: "위치/영업시간", code: "위치/영업시간" },
+                            { type: "TEXT", name: "주차안내", code: "주차안내" }
                         ]
                     }
                 ]

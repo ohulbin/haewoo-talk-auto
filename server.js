@@ -46,135 +46,95 @@ const webhookCaptureSchema = new mongoose.Schema({
 const WebhookCapture = mongoose.model('WebhookCapture', webhookCaptureSchema);
 
 // ==========================================
-// 3. API 엔드포인트 (예외 처리 고도화 버전)
+// 3. API 엔드포인트 (누락된 전체 라우터 완벽 복구본)
 // ==========================================
 
-// 1️⃣ 명단 업로드 API (지나간 예약 시간 필터링 추가)
+// 1. 예약 명단 전체 불러오기 (새로고침 증발 방지)
+app.get('/api/reservations', async (req, res) => {
+    try {
+        const list = await Reservation.find().sort({ reservationTime: 1 });
+        res.send(list);
+    } catch (error) { res.status(500).send({ success: false, error: error.message }); }
+});
+
+// 2. 명단 업로드 (과거 시간 필터링 적용 버전)
 app.post('/api/reservations/upload', async (req, res) => {
     try {
         const incomingUsers = req.body; 
         const incomingLockerIds = [...new Set(incomingUsers.map(u => u.lockerId))];
 
-        await Reservation.deleteMany({
-            lockerId: { $in: incomingLockerIds },
-            status: { $ne: 'SENT' }
-        });
+        await Reservation.deleteMany({ lockerId: { $in: incomingLockerIds }, status: { $ne: 'SENT' } });
 
         for (let user of incomingUsers) {
-            // 💡 [추가] 예약 시간이 현재 시간보다 과거인 경우 불러오지 않고 건너뜀
-            if (new Date(user.reservationTime) < new Date()) {
-                continue;
-            }
+            // 과거 시간 데이터 필터링
+            if (new Date(user.reservationTime) < new Date()) continue;
 
             const isAlreadySent = await Reservation.findOne({ phone: user.phone, lockerId: user.lockerId, status: 'SENT' });
             if (isAlreadySent) continue; 
 
             const matchedUser = await TalkUser.findOne({ name: user.name, phone: user.phone });
-            
             const newLog = new Reservation({
-                name: user.name,
-                phone: user.phone,
-                reservationTime: new Date(user.reservationTime),
-                lockerId: user.lockerId, 
-                pw: user.pw,             
-                talkId: matchedUser ? matchedUser.talkId : '', 
+                name: user.name, phone: user.phone, reservationTime: new Date(user.reservationTime),
+                lockerId: user.lockerId, pw: user.pw, talkId: matchedUser ? matchedUser.talkId : '', 
                 status: matchedUser ? 'SCHEDULED' : 'READY'   
             });
             await newLog.save();
         }
-
         const updatedList = await Reservation.find().sort({ reservationTime: 1 });
         res.send({ success: true, data: updatedList });
-    } catch (error) {
-        res.status(500).send({ success: false, error: error.message });
-    }
+    } catch (error) { res.status(500).send({ success: false, error: error.message }); }
 });
 
-// 2️⃣ 톡톡 ID 연동 API (동일 고객 복수 보관함 일괄 매칭 수정)
+// 3. 웹훅 수신함 불러오기 및 개별 삭제
+app.get('/api/webhook-captures', async (req, res) => {
+    try {
+        const captures = await WebhookCapture.find().sort({ receivedAt: -1 }).limit(50);
+        res.send(captures);
+    } catch (error) { res.status(500).send({ success: false }); }
+});
+app.delete('/api/webhook-captures/:id', async (req, res) => {
+    try {
+        await WebhookCapture.findByIdAndDelete(req.params.id);
+        res.send({ success: true });
+    } catch (error) { res.status(500).send({ success: false }); }
+});
+
+// 4. 톡톡 ID 연동 (복수 보관함 동시 일괄 매칭 적용 버전)
 app.post('/api/scheduler/register', async (req, res) => {
     try {
         const { id, talkId } = req.body; 
         const order = await Reservation.findById(id);
         if (!order) return res.status(404).send({ success: false });
 
-        // 1. 단골 장부(TalkUser) 저장 또는 갱신
         await TalkUser.findOneAndUpdate(
             { phone: order.phone }, 
             { name: order.name, phone: order.phone, talkId: talkId, updatedAt: Date.now() },
             { returnDocument: 'after', upsert: true } 
         );
 
-        // 2. 💡 [수정] 동일한 연락처(phone)를 가진 대기중(READY) 상태의 모든 예약 건을 찾아 한 번에 연동
+        // 동일 고객(연락처)의 대기중인 모든 보관함을 일괄 연동 처리
         await Reservation.updateMany(
             { phone: order.phone, status: 'READY' },
             { talkId: talkId, status: 'SCHEDULED' }
         );
 
-        // 3. 선택한 타겟 예약 건 개별 반영 (확실한 정합성 보장)
         order.talkId = talkId;
-        if (order.status === 'READY') {
-            order.status = 'SCHEDULED';
-        }
+        if (order.status === 'READY') order.status = 'SCHEDULED';
         await order.save();
 
-        await WebhookCapture.deleteOne({ talkId });
-        res.send({ success: true, data: order });
-    } catch (error) { 
-        console.error(error);
-        res.status(500).send({ success: false }); 
-    }
-});
-
-app.get('/api/webhook-captures', async (req, res) => {
-    try {
-        const captures = await WebhookCapture.find().sort({ receivedAt: -1 }).limit(50);
-        res.send(captures);
-    } catch (error) {
-        res.status(500).send({ success: false, error: error.message });
-    }
-});
-
-// 💡 [신규] 웹훅(일반 문의) 개별 삭제용 API
-app.delete('/api/webhook-captures/:id', async (req, res) => {
-    try {
-        await WebhookCapture.findByIdAndDelete(req.params.id);
-        res.send({ success: true });
-    } catch (error) {
-        res.status(500).send({ success: false, error: error.message });
-    }
-});
-
-app.post('/api/scheduler/register', async (req, res) => {
-    try {
-        const { id, talkId } = req.body; 
-        const order = await Reservation.findById(id);
-        if (!order) return res.status(404).send({ success: false });
-
-        order.talkId = talkId;
-        order.status = 'SCHEDULED';
-        await order.save();
-
-        await TalkUser.findOneAndUpdate(
-            { phone: order.phone }, 
-            { name: order.name, phone: order.phone, talkId: talkId, updatedAt: Date.now() },
-            { returnDocument: 'after', upsert: true } 
-        );
         await WebhookCapture.deleteOne({ talkId });
         res.send({ success: true, data: order });
     } catch (error) { res.status(500).send({ success: false }); }
 });
 
+// 5. 발송 예약 취소 및 명단 완전 삭제 (버튼 무반응 방지)
 app.post('/api/reservations/:id/cancel', async (req, res) => {
     try {
         const order = await Reservation.findById(req.params.id);
-        if (order) {
-            order.status = 'CANCELLED';
-            await order.save();
-        }
+        if (order) { order.status = 'CANCELLED'; await order.save(); }
         res.send({ success: true });
     } catch (error) { res.status(500).send({ success: false }); }
 });
-
 app.delete('/api/reservations/:id', async (req, res) => {
     try {
         await Reservation.findByIdAndDelete(req.params.id);
@@ -182,6 +142,7 @@ app.delete('/api/reservations/:id', async (req, res) => {
     } catch (error) { res.status(500).send({ success: false }); }
 });
 
+// 6. 네이버 웹훅 처리 (채팅 봇 로직)
 app.post('/webhook', async (req, res) => {
     const eventType = req.body.event; 
     const talkId = req.body.user;
@@ -189,65 +150,35 @@ app.post('/webhook', async (req, res) => {
     const url = 'https://gw.talk.naver.com/chatbot/v1/event';
     const headers = { 'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8' };
 
-    // 💡 1. 채팅방 최초 진입 시 (open 이벤트)
     if (eventType === 'open') {
-        
-        // 🛍️ [상품 링크 진입 감지] 
         if (req.body.options && req.body.options.product) {
             const product = req.body.options.product;
             try {
+                await axios.post(url, { event: "send", user: talkId, textContent: { text: "상품을 문의하셨습니다.\n어떤 점이 궁금하신가요? 😊" } }, { headers });
                 await axios.post(url, {
-                    event: "send", user: talkId,
-                    textContent: { text: "상품을 문의하셨습니다.\n어떤 점이 궁금하신가요? 😊" }
-                }, { headers });
-                
-                await axios.post(url, {
-                    event: "send", user: talkId,
-                    linkContent: {
-                        title: product.name,
-                        description: `${Number(product.price).toLocaleString()}원`,
-                        imageUrl: product.imageUrl,
-                        linkUrl: product.url
+                    event: "send", user: talkId, linkContent: {
+                        title: product.name, description: `${Number(product.price).toLocaleString()}원`,
+                        imageUrl: product.imageUrl, linkUrl: product.url
                     }
                 }, { headers });
             } catch (err) { console.error("상품 카드 발송 실패:", err); }
         }
-        
-        // 📋 [FAQ 캐러셀 완벽 복원] - 네이버 API 전용 버튼 규격 적용 완료
+
         const initialFaqPayload = {
-            event: "send",
-            user: talkId,
-            compositeContent: {
-                compositeList: [
-                    {
-                        title: "해우카메라 합정점",
-                        description: "24시 무인보관함 운영 / 택배X",
-                        // 💡 카카오가 아닌 네이버 전용 규격(data: { title, code })으로 완벽 교체!
-                        buttonList: [
-                            { type: "TEXT", data: { title: "주문방법", code: "주문방법" } },
-                            { type: "TEXT", data: { title: "스케줄(재고) 문의", code: "스케줄(재고) 문의" } },
-                            { type: "TEXT", data: { title: "수령/반납 방법", code: "수령/반납 방법" } }
-                        ]
-                    },
-                    {
-                        title: "해우카메라 합정점",
-                        description: "24시 무인보관함 운영 / 택배X",
-                        buttonList: [
-                            { type: "TEXT", data: { title: "위치/영업시간", code: "위치/영업시간" } },
-                            { type: "TEXT", data: { title: "주차안내", code: "주차안내" } }
-                        ]
-                    }
-                ]
-            }
+            event: "send", user: talkId,
+            textContent: { text: "해우카메라 합정점입니다 :)\n24시 무인보관함 운영 / 택배X\n\n궁금하신 항목을 아래 버튼에서 선택해 주세요." },
+            buttonList: [
+                { type: "TEXT", data: { title: "주문방법", code: "주문방법" } },
+                { type: "TEXT", data: { title: "스케줄(재고) 문의", code: "스케줄(재고) 문의" } },
+                { type: "TEXT", data: { title: "수령/반납 방법", code: "수령/반납 방법" } },
+                { type: "TEXT", data: { title: "위치/영업시간", code: "위치/영업시간" } },
+                { type: "TEXT", data: { title: "주차안내", code: "주차안내" } }
+            ]
         };
-        try {
-            await axios.post(url, initialFaqPayload, { headers });
-        } catch (err) { console.error("FAQ 리스트 발송 실패:", err); }
-
+        try { await axios.post(url, initialFaqPayload, { headers }); } catch (err) { console.error(err); }
         return res.send({ success: true });
-    }
-
-    // 💡 2. 고객이 메시지를 전송했거나 FAQ 버튼을 눌렀을 때 (send 이벤트)
+    }    
+    
     // 💡 2. 고객이 메시지를 전송했거나 FAQ 버튼을 눌렀을 때 (send 이벤트)
     if (eventType === 'send' && req.body.textContent) {
         const text = req.body.textContent.text.trim();
@@ -331,16 +262,11 @@ app.post('/webhook', async (req, res) => {
 
         // [자동응답 발송 로직]
         if (replyText !== "") {
-            try {
-                await axios.post(url, { event: "send", user: talkId, textContent: { text: replyText } }, { headers });
-            } catch (err) { console.error("FAQ 답변 발송 실패:", err); }
+            try { await axios.post(url, { event: "send", user: talkId, textContent: { text: replyText } }, { headers }); } catch (err) { console.error(err); }
         } else {
-            // 🚨 버튼이 아닌 진짜 고객의 질문만 관리자 대시보드 팝업창에 적재!
             try {
                 await WebhookCapture.findOneAndUpdate(
-                    { talkId: talkId },
-                    { talkId: talkId, lastMessage: text, receivedAt: Date.now() },
-                    { returnDocument: 'after', upsert: true }
+                    { talkId: talkId }, { talkId: talkId, lastMessage: text, receivedAt: Date.now() }, { returnDocument: 'after', upsert: true }
                 );
             } catch (err) { console.error(err); }
         }

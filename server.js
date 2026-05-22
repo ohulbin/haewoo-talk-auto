@@ -398,3 +398,46 @@ async function checkQueue() {
 setInterval(checkQueue, 60000);
 
 app.listen(process.env.PORT || 5000, () => console.log(`🚀 서버 구동 중`));
+
+// ==========================================
+// 5. 크론(Cron) 스케줄러 - 1분마다 발송 대상 탐색
+// ==========================================
+const cron = require('node-cron');
+
+// 💡 1분마다 실행
+cron.schedule('* * * * *', async () => {
+    try {
+        const now = new Date();
+        // 타겟 시간: 지금으로부터 정확히 1시간 뒤
+        const targetTime = new Date(now.getTime() + 60 * 60 * 1000); 
+
+        // 🚨 [핵심 수정] 예약 시간이 '지금 ~ 1시간 뒤' 사이로 임박했는데, 상태가 SCHEDULED인 건을 싹 다 찾음!
+        // (즉, 1시간 전에 딱 맞춰 올리지 않고 13분 전에 지각 업로드/매칭을 해도 즉시 발견해 냄)
+        const ordersToProcess = await Reservation.find({
+            status: 'SCHEDULED',
+            reservationTime: { $lte: targetTime, $gte: now } 
+        });
+
+        if (ordersToProcess.length > 0) {
+            console.log(`[스케줄러] ${ordersToProcess.length}건의 발송 대상을 발견했습니다.`);
+        }
+
+        for (let order of ordersToProcess) {
+            console.log(`[발송 시도] ${order.name} 고객님 - 보관함 ${order.lockerId}`);
+            
+            // 하단에 만들어두신 네이버 톡톡 발송 함수 호출
+            const success = await sendTalkMessage(order); 
+            
+            if (success) {
+                // 발송 성공 시 상태를 SENT로 변경하여 중복 발송 영구 차단
+                order.status = 'SENT';
+                await order.save();
+                console.log(`✅ [발송 성공] ${order.name} - 보관함 ${order.lockerId}`);
+            } else {
+                console.error(`❌ [발송 실패] ${order.name}`);
+            }
+        }
+    } catch (error) {
+        console.error("스케줄러 엔진 에러:", error);
+    }
+});

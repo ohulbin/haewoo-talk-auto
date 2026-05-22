@@ -46,17 +46,10 @@ const webhookCaptureSchema = new mongoose.Schema({
 const WebhookCapture = mongoose.model('WebhookCapture', webhookCaptureSchema);
 
 // ==========================================
-// 3. API 엔드포인트
+// 3. API 엔드포인트 (예외 처리 고도화 버전)
 // ==========================================
-app.get('/api/reservations', async (req, res) => {
-    try {
-        const list = await Reservation.find().sort({ reservationTime: 1 });
-        res.send(list);
-    } catch (error) {
-        res.status(500).send({ success: false, error: error.message });
-    }
-});
 
+// 1️⃣ 명단 업로드 API (지나간 예약 시간 필터링 추가)
 app.post('/api/reservations/upload', async (req, res) => {
     try {
         const incomingUsers = req.body; 
@@ -68,6 +61,11 @@ app.post('/api/reservations/upload', async (req, res) => {
         });
 
         for (let user of incomingUsers) {
+            // 💡 [추가] 예약 시간이 현재 시간보다 과거인 경우 불러오지 않고 건너뜀
+            if (new Date(user.reservationTime) < new Date()) {
+                continue;
+            }
+
             const isAlreadySent = await Reservation.findOne({ phone: user.phone, lockerId: user.lockerId, status: 'SENT' });
             if (isAlreadySent) continue; 
 
@@ -89,6 +87,41 @@ app.post('/api/reservations/upload', async (req, res) => {
         res.send({ success: true, data: updatedList });
     } catch (error) {
         res.status(500).send({ success: false, error: error.message });
+    }
+});
+
+// 2️⃣ 톡톡 ID 연동 API (동일 고객 복수 보관함 일괄 매칭 수정)
+app.post('/api/scheduler/register', async (req, res) => {
+    try {
+        const { id, talkId } = req.body; 
+        const order = await Reservation.findById(id);
+        if (!order) return res.status(404).send({ success: false });
+
+        // 1. 단골 장부(TalkUser) 저장 또는 갱신
+        await TalkUser.findOneAndUpdate(
+            { phone: order.phone }, 
+            { name: order.name, phone: order.phone, talkId: talkId, updatedAt: Date.now() },
+            { returnDocument: 'after', upsert: true } 
+        );
+
+        // 2. 💡 [수정] 동일한 연락처(phone)를 가진 대기중(READY) 상태의 모든 예약 건을 찾아 한 번에 연동
+        await Reservation.updateMany(
+            { phone: order.phone, status: 'READY' },
+            { talkId: talkId, status: 'SCHEDULED' }
+        );
+
+        // 3. 선택한 타겟 예약 건 개별 반영 (확실한 정합성 보장)
+        order.talkId = talkId;
+        if (order.status === 'READY') {
+            order.status = 'SCHEDULED';
+        }
+        await order.save();
+
+        await WebhookCapture.deleteOne({ talkId });
+        res.send({ success: true, data: order });
+    } catch (error) { 
+        console.error(error);
+        res.status(500).send({ success: false }); 
     }
 });
 

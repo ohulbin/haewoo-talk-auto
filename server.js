@@ -211,7 +211,7 @@ app.post('/webhook', async (req, res) => {
             replyText = `📝 [스케줄(재고) 문의]
 
 아래의 양식으로 문의 남겨주세요.
-(택배/퀵 대여 불가)
+(24시간 무인매장, 택배/퀵 불가)
 
 수령 : O월 O일 OO시
 반납 : O월 O일 OO시
@@ -377,25 +377,25 @@ try {
 } catch (error) { return false; }
 }
 
-async function checkQueue() {
-    const now = new Date();
-    try {
-        const activeTasks = await Reservation.find({ status: 'SCHEDULED' });
-        for (let task of activeTasks) {
-            const resTime = new Date(task.reservationTime);
-            const targetTime = new Date(now.getTime() + (60 * 60 * 1000));
-            const diff = Math.abs(resTime - targetTime);
+// async function checkQueue() {
+//     const now = new Date();
+//     try {
+//         const activeTasks = await Reservation.find({ status: 'SCHEDULED' });
+//         for (let task of activeTasks) {
+//             const resTime = new Date(task.reservationTime);
+//             const targetTime = new Date(now.getTime() + (60 * 60 * 1000));
+//             const diff = Math.abs(resTime - targetTime);
             
-            // 💡 [수정] 오차 범위 5분 -> 1분 30초 (90 * 1000 ms)로 조여서 중복 실행 방지
-            if (diff <= 90 * 1000) {
-                const isSent = await sendTalkMessage(task);
-                task.status = isSent ? 'SENT' : 'FAILED';
-                await task.save();
-            }
-        }
-    } catch (error) { console.error(error); }
-}
-setInterval(checkQueue, 60000);
+//             // 💡 [수정] 오차 범위 5분 -> 1분 30초 (90 * 1000 ms)로 조여서 중복 실행 방지
+//             if (diff <= 90 * 1000) {
+//                 const isSent = await sendTalkMessage(task);
+//                 task.status = isSent ? 'SENT' : 'FAILED';
+//                 await task.save();
+//             }
+//         }
+//     } catch (error) { console.error(error); }
+// }
+// setInterval(checkQueue, 60000);
 
 app.listen(process.env.PORT || 5000, () => console.log(`🚀 서버 구동 중`));
 
@@ -408,11 +408,11 @@ const cron = require('node-cron');
 cron.schedule('* * * * *', async () => {
     try {
         const now = new Date();
-        // 타겟 시간: 지금으로부터 정확히 1시간 뒤
-        const targetTime = new Date(now.getTime() + 60 * 60 * 1000); 
+        // 타겟 시간: 지금으로부터 정확히 30분 뒤
+        const targetTime = new Date(now.getTime() + 30 * 60 * 1000); 
 
-        // 🚨 [핵심 수정] 예약 시간이 '지금 ~ 1시간 뒤' 사이로 임박했는데, 상태가 SCHEDULED인 건을 싹 다 찾음!
-        // (즉, 1시간 전에 딱 맞춰 올리지 않고 13분 전에 지각 업로드/매칭을 해도 즉시 발견해 냄)
+        // 🚨 [핵심 수정] 예약 시간이 '지금 ~ 30분 뒤' 사이로 임박했는데, 상태가 SCHEDULED인 건을 싹 다 찾음!
+        // (즉, 30분 전에 딱 맞춰 올리지 않고 13분 전에 지각 업로드/매칭을 해도 즉시 발견해 냄)
         const ordersToProcess = await Reservation.find({
             status: 'SCHEDULED',
             reservationTime: { $lte: targetTime, $gte: now } 

@@ -171,16 +171,26 @@ app.post('/webhook', async (req, res) => {
         }
 
         // [2] 웰컴 메시지 및 FAQ 버튼 메뉴판 발송
-        const initialFaqPayload = {
-            event: "send", user: talkId,
-            textContent: { text: "해우카메라 합정점입니다 :)\n24시 무인보관함 운영 / 택배X\n\n궁금하신 항목을 아래 버튼에서 선택해 주세요." },
-            buttonList: [
-                { type: "TEXT", data: { title: "주문방법", code: "주문방법" } },
-                { type: "TEXT", data: { title: "스케줄(재고) 문의", code: "스케줄(재고) 문의" } },
-                { type: "TEXT", data: { title: "수령/반납 방법", code: "수령/반납 방법" } },
-                { type: "TEXT", data: { title: "위치/영업시간", code: "위치/영업시간" } },
-                { type: "TEXT", data: { title: "주차안내", code: "주차안내" } }
-            ]
+const initialFaqPayload = {
+            event: "send", 
+            user: talkId,
+            // 💡 단순 텍스트가 아닌 '카드형(compositeContent)' 포맷으로 보냅니다.
+            compositeContent: {
+                compositeList: [
+                    {
+                        title: "해우카메라 합정점입니다 :)",
+                        description: "24시 무인보관함 운영 / 택배X\n\n궁금하신 항목을 아래 버튼에서 선택해 주세요.",
+                        buttonList: [
+                            // 💡 버튼에 표시될 글자는 title이 아니라 'name'을 사용해야 합니다.
+                            { type: "TEXT", name: "주문방법", data: { code: "주문방법" } },
+                            { type: "TEXT", name: "스케줄(재고) 문의", data: { code: "스케줄(재고) 문의" } },
+                            { type: "TEXT", name: "수령/반납 방법", data: { code: "수령/반납 방법" } },
+                            { type: "TEXT", name: "위치/영업시간", data: { code: "위치/영업시간" } },
+                            { type: "TEXT", name: "주차안내", data: { code: "주차안내" } }
+                        ]
+                    }
+                ]
+            }
         };
         try { 
             await axios.post(url, initialFaqPayload, { headers }); 

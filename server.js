@@ -146,11 +146,17 @@ app.delete('/api/reservations/:id', async (req, res) => {
 app.post('/webhook', async (req, res) => {
     const eventType = req.body.event; 
     const talkId = req.body.user;
-    const token = process.env.NAVER_TALK_TOKEN; // [주의] 회사 실전 토큰으로 변경!
+    
+    // 💡 토큰은 환경변수(Render 금고)에서 안전하게 호출!
+    const token = process.env.NAVER_TALK_TOKEN; 
     const url = 'https://gw.talk.naver.com/chatbot/v1/event';
     const headers = { 'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8' };
 
+    // ==========================================
+    // 1. 고객이 채팅방에 처음 입장했을 때 (open 이벤트)
+    // ==========================================
     if (eventType === 'open') {
+        // [1] 상품을 클릭하고 들어온 경우 상품 카드 발송
         if (req.body.options && req.body.options.product) {
             const product = req.body.options.product;
             try {
@@ -164,6 +170,7 @@ app.post('/webhook', async (req, res) => {
             } catch (err) { console.error("상품 카드 발송 실패:", err); }
         }
 
+        // [2] 웰컴 메시지 및 FAQ 버튼 메뉴판 발송
         const initialFaqPayload = {
             event: "send", user: talkId,
             textContent: { text: "해우카메라 합정점입니다 :)\n24시 무인보관함 운영 / 택배X\n\n궁금하신 항목을 아래 버튼에서 선택해 주세요." },
@@ -175,17 +182,23 @@ app.post('/webhook', async (req, res) => {
                 { type: "TEXT", data: { title: "주차안내", code: "주차안내" } }
             ]
         };
-        try { await axios.post(url, initialFaqPayload, { headers }); } catch (err) { console.error(err); }
-        return res.send({ success: true });
+        try { 
+            await axios.post(url, initialFaqPayload, { headers }); 
+        } catch (err) { 
+            console.error("웰컴 메시지 발송 에러:", err); 
+        }
+        
+        return res.send({ success: true }); // 처리가 끝났으므로 여기서 조기 종료
     }    
     
-    // 💡 2. 고객이 메시지를 전송했거나 FAQ 버튼을 눌렀을 때 (send 이벤트)
+    // ==========================================
+    // 2. 고객이 메시지를 전송했거나 FAQ 버튼을 눌렀을 때 (send 이벤트)
+    // ==========================================
     if (eventType === 'send' && req.body.textContent) {
         const text = req.body.textContent.text.trim();
-        
         let replyText = "";
 
-        // 1️⃣ 주문방법 (번호 이모지와 굵은 느낌의 기호 사용)
+        // 1️⃣ 주문방법
         if (text === "주문방법") {
             replyText = `📢 [주문방법]
 상담 → 결제 → 확정 → 대여·반납
@@ -205,8 +218,7 @@ app.post('/webhook', async (req, res) => {
 카카오톡 [픽스]로 발송되며
 작성 후 예약이 확정됩니다.`;
         }
-
-        // 2️⃣ 스케줄(재고) 문의 (입력 양식 강조)
+        // 2️⃣ 스케줄(재고) 문의
         else if (text === "스케줄(재고) 문의") {
             replyText = `📝 [스케줄(재고) 문의]
 
@@ -221,8 +233,7 @@ app.post('/webhook', async (req, res) => {
 평일 10~18시 실시간 상담
 (그 외 시간 순차적 상담)`;
         }
-
-        // 3️⃣ 수령/반납 방법 (별 이모지 강조)
+        // 3️⃣ 수령/반납 방법
         else if (text === "수령/반납 방법") {
             replyText = `📦 [수령/반납 방법]
 
@@ -233,8 +244,7 @@ app.post('/webhook', async (req, res) => {
 🌟 24시 무인 보관함으로 운영되어
 예약 시간 내에는 편하게 이용하실 수 있습니다.`;
         }
-
-        // 4️⃣ 위치/영업시간 (지도 및 시계 이모지)
+        // 4️⃣ 위치/영업시간
         else if (text === "위치/영업시간") {
             replyText = `📍 [위치]
 서울 마포구 양화로 45
@@ -246,8 +256,7 @@ app.post('/webhook', async (req, res) => {
 무인보관함 수령/반납
 * 상담 가능 시간은 평일 10~18시입니다.`;
         }
-
-        // 5️⃣ 주차안내 (주차장 위치 및 무료 등록 강조)
+        // 5️⃣ 주차안내
         else if (text === "주차안내") {
             replyText = `🚗 [주차안내]
 
@@ -260,18 +269,29 @@ app.post('/webhook', async (req, res) => {
 차량번호 뒤 4자리 입력)`;
         }
 
-        // [자동응답 발송 로직]
+        // [자동응답 발송 및 DB 저장 로직]
         if (replyText !== "") {
-            try { await axios.post(url, { event: "send", user: talkId, textContent: { text: replyText } }, { headers }); } catch (err) { console.error(err); }
+            // 버튼을 누르거나 지정된 명령어를 쳤을 때 -> 챗봇이 즉시 자동 답변
+            try { 
+                await axios.post(url, { event: "send", user: talkId, textContent: { text: replyText } }, { headers }); 
+            } catch (err) { 
+                console.error("자동답변 발송 실패:", err); 
+            }
         } else {
+            // 지정되지 않은 일반 대화를 쳤을 때 -> 매장 관리자가 볼 수 있게 DB에 수집
             try {
                 await WebhookCapture.findOneAndUpdate(
-                    { talkId: talkId }, { talkId: talkId, lastMessage: text, receivedAt: Date.now() }, { returnDocument: 'after', upsert: true }
+                    { talkId: talkId }, 
+                    { talkId: talkId, lastMessage: text, receivedAt: Date.now() }, 
+                    { returnDocument: 'after', upsert: true }
                 );
-            } catch (err) { console.error(err); }
+            } catch (err) { 
+                console.error("DB 수집 실패:", err); 
+            }
         }
     }
-    res.send({ success: true });
+    
+    return res.send({ success: true });
 });
 // ==========================================
 // 4. 네이버 발송 

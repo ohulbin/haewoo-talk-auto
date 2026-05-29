@@ -144,23 +144,22 @@ app.delete('/api/reservations/:id', async (req, res) => {
 
 // 6. 네이버 웹훅 처리 (채팅 봇 로직)
 app.post('/webhook', async (req, res) => {
-    // 🚨 [안전장치 1] 네이버의 3중복 발송 폭격을 막기 위해 무조건 수신 확인부터 던집니다.
-    res.status(200).send('OK');
+    // 🚨 [절대 방어 1] 네이버의 무작위 재시도 폭격을 원천 차단하기 위해 0.1초 만에 응답 종료
+    res.status(200).send({ success: true });
 
     try {
         const eventType = req.body.event; 
         const talkId = req.body.user;
-        
-        // 💡 [실전 복구] 해우카메라 본 매장 보안을 위해 반드시 환경변수로 호출하세요!
-        const token = process.env.NAVER_TALK_TOKEN; 
+        //const token = process.env.NAVER_TALK_TOKEN;
+        const token = 'iJaGlLZJTC2Fj8iLTRSc';
         const url = 'https://gw.talk.naver.com/chatbot/v1/event';
         const headers = { 'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8' };
 
         // ==========================================
-        // 1. 고객이 채팅방에 처음 입장했을 때 (open 이벤트)
+        // 🛑 갈래 1: 고객이 톡톡 문의 버튼을 누르고 "처음 들어왔을 때만" (대화 중 난입 불가)
         // ==========================================
         if (eventType === 'open') {
-            // [1] 상품을 클릭하고 들어온 경우 상품 카드 발송
+            // 상품을 클릭하고 들어온 경우
             if (req.body.options && req.body.options.product) {
                 const product = req.body.options.product;
                 try {
@@ -174,87 +173,67 @@ app.post('/webhook', async (req, res) => {
                 } catch (err) { console.error("상품 카드 발송 실패:", err); }
             }
 
-            // [2] 웰컴 메시지 및 FAQ 버튼 메뉴판 발송
-            // 🚨 [규격 완벽 검수] 네이버 API 공식 규격에 맞춘 캐러셀 양식입니다.
+            // 웰컴 캐러셀 발송 (네이버 공식 규격)
             const initialFaqPayload = {
                 event: "send", 
                 user: talkId,
                 compositeContent: {
-                    compositeList: [
-                        {
-                            title: "해우카메라 합정점입니다 :)",
-                            description: "24시 무인보관함 운영 / 택배X\n\n궁금하신 항목을 아래 버튼에서 선택해 주세요.",
-                            buttonList: [
-                                { type: "TEXT", data: { title: "주문방법", code: "주문방법" } },
-                                { type: "TEXT", data: { title: "스케줄(재고) 문의", code: "스케줄(재고) 문의" } },
-                                { type: "TEXT", data: { title: "수령/반납 방법", code: "수령/반납 방법" } },
-                                { type: "TEXT", data: { title: "위치/영업시간", code: "위치/영업시간" } },
-                                { type: "TEXT", data: { title: "주차안내", code: "주차안내" } }
-                            ]
-                        }
-                    ]
+                    compositeList: [{
+                        title: "해우카메라 합정점입니다 :)",
+                        description: "24시 무인보관함 운영 / 택배X\n\n궁금하신 항목을 아래 버튼에서 선택해 주세요.",
+                        buttonList: [
+                            { type: "TEXT", data: { title: "주문방법", code: "주문방법" } },
+                            { type: "TEXT", data: { title: "스케줄(재고) 문의", code: "스케줄(재고) 문의" } },
+                            { type: "TEXT", data: { title: "수령/반납 방법", code: "수령/반납 방법" } },
+                            { type: "TEXT", data: { title: "위치/영업시간", code: "위치/영업시간" } },
+                            { type: "TEXT", data: { title: "주차안내", code: "주차안내" } }
+                        ]
+                    }]
                 }
             };
             try { 
                 await axios.post(url, initialFaqPayload, { headers }); 
             } catch (err) { 
-                console.error("웰컴 캐러셀 발송 에러:", err.response ? err.response.data : err); 
+                console.error("캐러셀 발송 에러:", err); 
             }
+            
+            return; // 🚨 [절대 방어 2] open 처리가 끝났으므로 코드를 즉시 끊어버림. 아래 로직 절대 실행 안 됨.
         }    
         
         // ==========================================
-        // 2. 고객이 메시지를 전송했거나 FAQ 버튼을 눌렀을 때 (send 이벤트)
+        // 🛑 갈래 2: 고객이 "대화(텍스트)를 입력했을 때" (여기서는 캐러셀 절대 발송 불가)
         // ==========================================
-        else if (eventType === 'send' && req.body.textContent) {
+        if (eventType === 'send' && req.body.textContent) {
             const text = req.body.textContent.text.trim();
             let replyText = "";
 
-            // 1️⃣ 주문방법
-            if (text === "주문방법") {
-                replyText = `📢 [주문방법]\n상담 → 결제 → 확정 → 대여·반납\n\n1️⃣ 스케줄 문의 (필수)\n네이버톡톡으로 수령/반납\n일자, 시간을 정확히 말씀주셔야\n스케줄 확인이 가능합니다.\n⚠️ 미상담 결제 시 통보 없이 취소\n\n2️⃣ 결제\n결제순으로 예약마감이 되므로\n상담 후 빠르게 결제 완료해주세요.\n\n3️⃣ 전자계약서 작성 & 예약확정\n실명 및 신용증명 확인 절차\n카카오톡 [픽스]로 발송되며\n작성 후 예약이 확정됩니다.`;
-            }
-            // 2️⃣ 스케줄(재고) 문의
-            else if (text === "스케줄(재고) 문의") {
-                replyText = `📝 [스케줄(재고) 문의]\n\n아래의 양식으로 문의 남겨주세요.\n(24시간 무인매장, 택배/퀵 불가)\n\n수령 : O월 O일 OO시\n반납 : O월 O일 OO시\n(00시~24시 / 24시간 표시)\n\n🗨️ 네이버톡톡 상담시간\n평일 10~18시 실시간 상담\n(그 외 시간 순차적 상담)`;
-            }
-            // 3️⃣ 수령/반납 방법
-            else if (text === "수령/반납 방법") {
-                replyText = `📦 [수령/반납 방법]\n\n스케줄 상담 후 예약이 확정되면\n수령 전 네이버톡톡으로\n자세한 안내를 드립니다.\n\n🌟 24시 무인 보관함으로 운영되어\n예약 시간 내에는 편하게 이용하실 수 있습니다.`;
-            }
-            // 4️⃣ 위치/영업시간
-            else if (text === "위치/영업시간") {
-                replyText = `📍 [위치]\n서울 마포구 양화로 45\n메세나폴리스 116호 해우카메라\n(합정역 6호선 10번 출구 도보 1분)\n\n🕒 [영업시간]\n365일 24시간 연중무휴\n무인보관함 수령/반납\n* 상담 가능 시간은 평일 10~18시입니다.`;
-            }
-            // 5️⃣ 주차안내
-            else if (text === "주차안내") {
-                replyText = `🚗 [주차안내]\n\n📍 서울 마포구 양화로 45\n메세나폴리스 지하주차장\n\n✅ 셀프 주차 등록\n3시간 무료 주차 가능\n(매장 내 QR코드 인식 후\n차량번호 뒤 4자리 입력)`;
-            }
+            if (text === "주문방법") replyText = `📢 [주문방법]\n상담 → 결제 → 확정 → 대여·반납\n\n1️⃣ 스케줄 문의 (필수)\n네이버톡톡으로 수령/반납\n일자, 시간을 정확히 말씀주셔야\n스케줄 확인이 가능합니다.\n⚠️ 미상담 결제 시 통보 없이 취소\n\n2️⃣ 결제\n결제순으로 예약마감이 되므로\n상담 후 빠르게 결제 완료해주세요.\n\n3️⃣ 전자계약서 작성 & 예약확정\n실명 및 신용증명 확인 절차\n카카오톡 [픽스]로 발송되며\n작성 후 예약이 확정됩니다.`;
+            else if (text === "스케줄(재고) 문의") replyText = `📝 [스케줄(재고) 문의]\n\n아래의 양식으로 문의 남겨주세요.\n(24시간 무인매장, 택배/퀵 불가)\n\n수령 : O월 O일 OO시\n반납 : O월 O일 OO시\n(00시~24시 / 24시간 표시)\n\n🗨️ 네이버톡톡 상담시간\n평일 10~18시 실시간 상담\n(그 외 시간 순차적 상담)`;
+            else if (text === "수령/반납 방법") replyText = `📦 [수령/반납 방법]\n\n스케줄 상담 후 예약이 확정되면\n수령 전 네이버톡톡으로\n자세한 안내를 드립니다.\n\n🌟 24시 무인 보관함으로 운영되어\n예약 시간 내에는 편하게 이용하실 수 있습니다.`;
+            else if (text === "위치/영업시간") replyText = `📍 [위치]\n서울 마포구 양화로 45\n메세나폴리스 116호 해우카메라\n(합정역 6호선 10번 출구 도보 1분)\n\n🕒 [영업시간]\n365일 24시간 연중무휴\n무인보관함 수령/반납\n* 상담 가능 시간은 평일 10~18시입니다.`;
+            else if (text === "주차안내") replyText = `🚗 [주차안내]\n\n📍 서울 마포구 양화로 45\n메세나폴리스 지하주차장\n\n✅ 셀프 주차 등록\n3시간 무료 주차 가능\n(매장 내 QR코드 인식 후\n차량번호 뒤 4자리 입력)`;
 
-            // [자동응답 발송 및 DB 저장 로직]
+            // 답변이 있는 키워드면 발송, 아니면 DB에 수집
             if (replyText !== "") {
-                try { 
-                    await axios.post(url, { event: "send", user: talkId, textContent: { text: replyText } }, { headers }); 
-                } catch (err) { 
-                    console.error("자동답변 발송 실패:", err); 
-                }
+                try { await axios.post(url, { event: "send", user: talkId, textContent: { text: replyText } }, { headers }); } 
+                catch (err) { console.error("자동답변 에러:", err); }
             } else {
-                // ⭐ [DB 실전 수집 완벽 유지] 일반 문의가 들어오면 다시 해우카메라 DB로 안전하게 저장됩니다.
                 try {
                     await WebhookCapture.findOneAndUpdate(
                         { talkId: talkId }, 
                         { talkId: talkId, lastMessage: text, receivedAt: Date.now() }, 
                         { returnDocument: 'after', upsert: true }
                     );
-                } catch (err) { 
-                    console.error("DB 수집 실패:", err); 
-                }
+                } catch (err) { console.error("DB 수집 에러:", err); }
             }
+
+            return; // 🚨 [절대 방어 3] send 처리 종료 시 확실하게 끊어줌.
         }
+
     } catch (error) {
-        console.error("웹훅 전체 처리 중 에러 발생:", error);
+        console.error("서버 내부 에러:", error);
     }
 });
-
 // ==========================================
 // 4. 네이버 발송 
 // ==========================================

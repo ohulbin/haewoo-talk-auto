@@ -88,7 +88,7 @@ app.post('/api/reservations/upload', async (req, res) => {
 // 3. 웹훅 수신함 불러오기 및 개별 삭제
 app.get('/api/webhook-captures', async (req, res) => {
     try {
-        const captures = await WebhookCapture.find().sort({ receivedAt: -1 }).limit(50);
+        const captures = await WebhookCapture.find().sort({ receivedAt: -1 }).limit(200);
         res.send(captures);
     } catch (error) { res.status(500).send({ success: false }); }
 });

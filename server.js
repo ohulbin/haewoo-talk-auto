@@ -146,7 +146,7 @@ app.delete('/api/reservations/:id', async (req, res) => {
 app.post('/webhook', async (req, res) => {
     const eventType = req.body.event; 
     const talkId = req.body.user;
-    const token = 'iJaGlLZJTC2Fj8iLTRSc'; // [주의] 회사 실전 토큰으로 변경!
+    const token = process.env.NAVER_TALK_TOKEN; // [주의] 회사 실전 토큰으로 변경!
     const url = 'https://gw.talk.naver.com/chatbot/v1/event';
     const headers = { 'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8' };
 

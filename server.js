@@ -144,16 +144,15 @@ app.delete('/api/reservations/:id', async (req, res) => {
 
 // 6. 네이버 웹훅 처리 (채팅 봇 로직)
 app.post('/webhook', async (req, res) => {
-    // 🚨 [긴급 처방 1] 네이버의 3중복 발송 폭격을 막기 위해 로직 시작 즉시 "잘 받았어!"라고 수신 확인부터 던집니다.
+    // 🚨 [안전장치 1] 네이버의 3중복 발송 폭격을 막기 위해 무조건 수신 확인부터 던집니다.
     res.status(200).send('OK');
 
     try {
         const eventType = req.body.event; 
         const talkId = req.body.user;
         
-        // 💡 토큰은 환경변수(Render 금고)에서 안전하게 호출!
-        //const token = process.env.NAVER_TALK_TOKEN; 
-        const token = "iJaGlLZJTC2Fj8iLTRSc";
+        // 💡 [실전 복구] 해우카메라 본 매장 보안을 위해 반드시 환경변수로 호출하세요!
+        const token = process.env.NAVER_TALK_TOKEN; 
         const url = 'https://gw.talk.naver.com/chatbot/v1/event';
         const headers = { 'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8' };
 
@@ -176,6 +175,7 @@ app.post('/webhook', async (req, res) => {
             }
 
             // [2] 웰컴 메시지 및 FAQ 버튼 메뉴판 발송
+            // 🚨 [규격 완벽 검수] 네이버 API 공식 규격에 맞춘 캐러셀 양식입니다.
             const initialFaqPayload = {
                 event: "send", 
                 user: talkId,
@@ -185,12 +185,11 @@ app.post('/webhook', async (req, res) => {
                             title: "해우카메라 합정점입니다 :)",
                             description: "24시 무인보관함 운영 / 택배X\n\n궁금하신 항목을 아래 버튼에서 선택해 주세요.",
                             buttonList: [
-                                // 🚨 [긴급 처방 2] 에러를 일으키는 복잡한 양식을 버리고, 가장 안전한 순수 문자열로 원상 복구!
-                                { type: "TEXT", name: "주문방법", data: "주문방법" },
-                                { type: "TEXT", name: "스케줄(재고) 문의", data: "스케줄(재고) 문의" },
-                                { type: "TEXT", name: "수령/반납 방법", data: "수령/반납 방법" },
-                                { type: "TEXT", name: "위치/영업시간", data: "위치/영업시간" },
-                                { type: "TEXT", name: "주차안내", data: "주차안내" }
+                                { type: "TEXT", data: { title: "주문방법", code: "주문방법" } },
+                                { type: "TEXT", data: { title: "스케줄(재고) 문의", code: "스케줄(재고) 문의" } },
+                                { type: "TEXT", data: { title: "수령/반납 방법", code: "수령/반납 방법" } },
+                                { type: "TEXT", data: { title: "위치/영업시간", code: "위치/영업시간" } },
+                                { type: "TEXT", data: { title: "주차안내", code: "주차안내" } }
                             ]
                         }
                     ]
@@ -199,7 +198,7 @@ app.post('/webhook', async (req, res) => {
             try { 
                 await axios.post(url, initialFaqPayload, { headers }); 
             } catch (err) { 
-                console.error("웰컴 메시지 발송 에러:", err); 
+                console.error("웰컴 캐러셀 발송 에러:", err.response ? err.response.data : err); 
             }
         }    
         
@@ -233,14 +232,13 @@ app.post('/webhook', async (req, res) => {
 
             // [자동응답 발송 및 DB 저장 로직]
             if (replyText !== "") {
-                // 버튼을 누르거나 지정된 명령어를 쳤을 때 -> 챗봇이 즉시 자동 답변
                 try { 
                     await axios.post(url, { event: "send", user: talkId, textContent: { text: replyText } }, { headers }); 
                 } catch (err) { 
                     console.error("자동답변 발송 실패:", err); 
                 }
             } else {
-                // 지정되지 않은 일반 대화를 쳤을 때 -> 매장 관리자가 볼 수 있게 DB에 수집
+                // ⭐ [DB 실전 수집 완벽 유지] 일반 문의가 들어오면 다시 해우카메라 DB로 안전하게 저장됩니다.
                 try {
                     await WebhookCapture.findOneAndUpdate(
                         { talkId: talkId }, 

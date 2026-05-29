@@ -144,24 +144,26 @@ app.delete('/api/reservations/:id', async (req, res) => {
 
 // 6. 네이버 웹훅 처리 (채팅 봇 로직)
 app.post('/webhook', async (req, res) => {
-    // 🚨 [절대 방어 1] 네이버의 무작위 재시도 폭격을 원천 차단하기 위해 0.1초 만에 응답 종료
+    // 🚨 [절대 방어] 네이버의 재시도(도배) 폭격을 원천 차단
     res.status(200).send({ success: true });
 
     try {
         const eventType = req.body.event; 
         const talkId = req.body.user;
-        //const token = process.env.NAVER_TALK_TOKEN;
-        const token = 'iJaGlLZJTC2Fj8iLTRSc';
+        const token = process.env.NAVER_TALK_TOKEN; // (실전 시 꼭 환경변수 확인!)
         const url = 'https://gw.talk.naver.com/chatbot/v1/event';
         const headers = { 'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8' };
 
         // ==========================================
-        // 🛑 갈래 1: 고객이 톡톡 문의 버튼을 누르고 "처음 들어왔을 때만" (대화 중 난입 불가)
+        // 🛑 갈래 1: 방에 들어왔을 때 (open)
         // ==========================================
         if (eventType === 'open') {
-            // 상품을 클릭하고 들어온 경우
+            
+            // 💡 [핵심 변경] 상품을 클릭하고 들어온 경우에'만' 상품 카드와 메뉴판을 둘 다 발송합니다.
             if (req.body.options && req.body.options.product) {
                 const product = req.body.options.product;
+                
+                // [1] 상품 카드 발송
                 try {
                     await axios.post(url, { event: "send", user: talkId, textContent: { text: "상품을 문의하셨습니다.\n어떤 점이 궁금하신가요? 😊" } }, { headers });
                     await axios.post(url, {
@@ -171,37 +173,36 @@ app.post('/webhook', async (req, res) => {
                         }
                     }, { headers });
                 } catch (err) { console.error("상품 카드 발송 실패:", err); }
-            }
 
-            // 웰컴 캐러셀 발송 (네이버 공식 규격)
-            const initialFaqPayload = {
-                event: "send", 
-                user: talkId,
-                compositeContent: {
-                    compositeList: [{
-                        title: "해우카메라 합정점입니다 :)",
-                        description: "24시 무인보관함 운영 / 택배X\n\n궁금하신 항목을 아래 버튼에서 선택해 주세요.",
-                        buttonList: [
-                            { type: "TEXT", data: { title: "주문방법", code: "주문방법" } },
-                            { type: "TEXT", data: { title: "스케줄(재고) 문의", code: "스케줄(재고) 문의" } },
-                            { type: "TEXT", data: { title: "수령/반납 방법", code: "수령/반납 방법" } },
-                            { type: "TEXT", data: { title: "위치/영업시간", code: "위치/영업시간" } },
-                            { type: "TEXT", data: { title: "주차안내", code: "주차안내" } }
-                        ]
-                    }]
-                }
-            };
-            try { 
-                await axios.post(url, initialFaqPayload, { headers }); 
-            } catch (err) { 
-                console.error("캐러셀 발송 에러:", err); 
+                // [2] 웰컴 캐러셀 발송 (상품 문의 시에만 등장!)
+                const initialFaqPayload = {
+                    event: "send", 
+                    user: talkId,
+                    compositeContent: {
+                        compositeList: [{
+                            title: "해우카메라 합정점입니다 :)",
+                            description: "24시 무인보관함 운영 / 택배X\n\n궁금하신 항목을 아래 버튼에서 선택해 주세요.",
+                            buttonList: [
+                                { type: "TEXT", data: { title: "주문방법", code: "주문방법" } },
+                                { type: "TEXT", data: { title: "스케줄(재고) 문의", code: "스케줄(재고) 문의" } },
+                                { type: "TEXT", data: { title: "수령/반납 방법", code: "수령/반납 방법" } },
+                                { type: "TEXT", data: { title: "위치/영업시간", code: "위치/영업시간" } },
+                                { type: "TEXT", data: { title: "주차안내", code: "주차안내" } }
+                            ]
+                        }]
+                    }
+                };
+                try { await axios.post(url, initialFaqPayload, { headers }); } 
+                catch (err) { console.error("캐러셀 발송 에러:", err); }
             }
             
-            return; // 🚨 [절대 방어 2] open 처리가 끝났으므로 코드를 즉시 끊어버림. 아래 로직 절대 실행 안 됨.
+            // 상품 없이 그냥 [톡톡하기]로 들어온 경우는 
+            // 위 if문에 걸리지 않으므로 아무것도 보내지 않고 조용히 종료됩니다.
+            return; 
         }    
         
         // ==========================================
-        // 🛑 갈래 2: 고객이 "대화(텍스트)를 입력했을 때" (여기서는 캐러셀 절대 발송 불가)
+        // 🛑 갈래 2: 고객이 "대화"를 입력했을 때 (send)
         // ==========================================
         if (eventType === 'send' && req.body.textContent) {
             const text = req.body.textContent.text.trim();
@@ -213,10 +214,9 @@ app.post('/webhook', async (req, res) => {
             else if (text === "위치/영업시간") replyText = `📍 [위치]\n서울 마포구 양화로 45\n메세나폴리스 116호 해우카메라\n(합정역 6호선 10번 출구 도보 1분)\n\n🕒 [영업시간]\n365일 24시간 연중무휴\n무인보관함 수령/반납\n* 상담 가능 시간은 평일 10~18시입니다.`;
             else if (text === "주차안내") replyText = `🚗 [주차안내]\n\n📍 서울 마포구 양화로 45\n메세나폴리스 지하주차장\n\n✅ 셀프 주차 등록\n3시간 무료 주차 가능\n(매장 내 QR코드 인식 후\n차량번호 뒤 4자리 입력)`;
 
-            // 답변이 있는 키워드면 발송, 아니면 DB에 수집
             if (replyText !== "") {
                 try { await axios.post(url, { event: "send", user: talkId, textContent: { text: replyText } }, { headers }); } 
-                catch (err) { console.error("자동답변 에러:", err); }
+                catch (err) { console.error("자동답변 발송 실패:", err); }
             } else {
                 try {
                     await WebhookCapture.findOneAndUpdate(
@@ -224,10 +224,9 @@ app.post('/webhook', async (req, res) => {
                         { talkId: talkId, lastMessage: text, receivedAt: Date.now() }, 
                         { returnDocument: 'after', upsert: true }
                     );
-                } catch (err) { console.error("DB 수집 에러:", err); }
+                } catch (err) { console.error("DB 수집 실패:", err); }
             }
-
-            return; // 🚨 [절대 방어 3] send 처리 종료 시 확실하게 끊어줌.
+            return;
         }
 
     } catch (error) {

@@ -148,7 +148,7 @@ app.post('/webhook', async (req, res) => {
     const talkId = req.body.user;
     
     // 💡 토큰은 환경변수(Render 금고)에서 안전하게 호출!
-    const token = process.env.NAVER_TALK_TOKEN; 
+    const token = ''; 
     const url = 'https://gw.talk.naver.com/chatbot/v1/event';
     const headers = { 'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8' };
 

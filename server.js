@@ -278,7 +278,7 @@ app.post('/webhook', async (req, res) => {
 // ==========================================
 async function sendTalkMessage(task) {
     const url = 'https://gw.talk.naver.com/chatbot/v1/event';
-    const token = process.env.TALK_TOKEN;
+    const token = process.env.NAVER_TALK_TOKEN;
     const headers = { 'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8' };
 
     const messageText = `[합정점 무인 수령 및 반납 안내]

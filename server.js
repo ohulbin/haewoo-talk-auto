@@ -160,7 +160,7 @@ app.post('/webhook', async (req, res) => {
         if (eventType === 'open') {
             
             // 💡 [핵심 변경] 상품을 클릭하고 들어온 경우에'만' 상품 카드와 메뉴판을 둘 다 발송합니다.
-            if (req.body.options && req.body.options.product) {
+            //if (req.body.options && req.body.options.product) {
                 const product = req.body.options.product;
                 
                 // [1] 상품 카드 발송
@@ -194,7 +194,7 @@ app.post('/webhook', async (req, res) => {
                 };
                 try { await axios.post(url, initialFaqPayload, { headers }); } 
                 catch (err) { console.error("캐러셀 발송 에러:", err); }
-            }
+            //}
             
             // 상품 없이 그냥 [톡톡하기]로 들어온 경우는 
             // 위 if문에 걸리지 않으므로 아무것도 보내지 않고 조용히 종료됩니다.

@@ -174,24 +174,34 @@ app.post('/webhook', async (req, res) => {
                     }, { headers });
                 } catch (err) { console.error("상품 카드 발송 실패:", err); }
 
-                // [2] 웰컴 캐러셀 발송 (상품 문의 시에만 등장!)
-                const initialFaqPayload = {
-                    event: "send", 
-                    user: talkId,
-                    compositeContent: {
-                        compositeList: [{
-                            title: "해우카메라 합정점입니다 :)",
-                            description: "24시 무인보관함 운영 / 택배X\n\n궁금하신 항목을 아래 버튼에서 선택해 주세요.",
+            // [2] 웰컴 캐러셀 발송 (2개의 카드로 나누어 옆으로 넘기는 형태)
+            const initialFaqPayload = {
+                event: "send", 
+                user: talkId,
+                compositeContent: {
+                    compositeList: [
+                        // 👈 첫 번째 카드 (버튼 3개)
+                        {
+                            title: "해우카메라 합정점",
+                            description: "24시 무인보관함 운영 / 택배X",
                             buttonList: [
                                 { type: "TEXT", data: { title: "주문방법", code: "주문방법" } },
                                 { type: "TEXT", data: { title: "스케줄(재고) 문의", code: "스케줄(재고) 문의" } },
-                                { type: "TEXT", data: { title: "수령/반납 방법", code: "수령/반납 방법" } },
+                                { type: "TEXT", data: { title: "수령/반납 방법", code: "수령/반납 방법" } }
+                            ]
+                        },
+                        // 👈 두 번째 카드 (버튼 2개)
+                        {
+                            title: "해우카메라 합정점",
+                            description: "24시 무인보관함 운영 / 택배X",
+                            buttonList: [
                                 { type: "TEXT", data: { title: "위치/영업시간", code: "위치/영업시간" } },
                                 { type: "TEXT", data: { title: "주차안내", code: "주차안내" } }
                             ]
-                        }]
-                    }
-                };
+                        }
+                    ]
+                }
+            };
                 try { await axios.post(url, initialFaqPayload, { headers }); } 
                 catch (err) { console.error("캐러셀 발송 에러:", err); }
             //}

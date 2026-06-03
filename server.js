@@ -144,6 +144,15 @@ app.delete('/api/reservations/:id', async (req, res) => {
 
 // 6. 네이버 웹훅 처리 (채팅 봇 로직)
 app.post('/webhook', async (req, res) => {
+    console.log("🔥 WEBHOOK TEST 20260603");
+
+    console.log(
+        "BODY:",
+        JSON.stringify(req.body, null, 2)
+    );
+    console.log("EVENT:", req.body.event);
+    console.log("OPTIONS:", req.body.options);
+    console.log("PRODUCT:", req.body.options?.product);
     // 🚨 [절대 방어] 네이버의 재시도(도배) 폭격을 원천 차단
     res.status(200).send({ success: true });
 

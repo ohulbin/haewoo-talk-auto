@@ -166,12 +166,12 @@ app.post('/webhook', async (req, res) => {
                 // [1] 상품 카드 발송
                 try {
                     await axios.post(url, { event: "send", user: talkId, textContent: { text: "상품을 문의하셨습니다.\n어떤 점이 궁금하신가요? 😊" } }, { headers });
-                    await axios.post(url, {
-                        event: "send", user: talkId, linkContent: {
-                            title: product.name, description: `${Number(product.price).toLocaleString()}원`,
-                            imageUrl: product.imageUrl, linkUrl: product.url
-                        }
-                    }, { headers });
+                    // await axios.post(url, {
+                    //     event: "send", user: talkId, linkContent: {
+                    //         title: product.name, description: `${Number(product.price).toLocaleString()}원`,
+                    //         imageUrl: product.imageUrl, linkUrl: product.url
+                    //     }
+                    // }, { headers });
                 } catch (err) { console.error("상품 카드 발송 실패:", err); }
 
                 // [2] 웰컴 캐러셀 발송 (100% 작동 보장되는 1장짜리 5버튼으로 원상 복구)

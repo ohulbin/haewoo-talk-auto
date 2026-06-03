@@ -215,6 +215,38 @@ app.post('/webhook', async (req, res) => {
         // 🛑 갈래 2: 고객이 "대화"를 입력했을 때 (send)
         // ==========================================
         if (eventType === 'send' && req.body.textContent) {
+            if (
+                req.body.textContent?.inputType === 'product' &&
+                req.body.options?.product
+            ) {
+                console.log('🔥 상품문의 감지');
+            
+                console.log(
+                    JSON.stringify(
+                        {
+                            event: "send",
+                            user: talkId,
+                            compositeContent: {
+                                compositeList: [{
+                                    title: "테스트",
+                                    description: "테스트",
+                                    buttonList: [
+                                        {
+                                            type: "TEXT",
+                                            data: {
+                                                title: "주문방법",
+                                                code: "주문방법"
+                                            }
+                                        }
+                                    ]
+                                }]
+                            }
+                        },
+                        null,
+                        2
+                    )
+                );
+            }
             const text = req.body.textContent.text.trim();
             let replyText = "";
 

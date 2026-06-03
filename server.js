@@ -194,9 +194,8 @@ app.post('/webhook', async (req, res) => {
                 };
                 
                 try { await axios.post(url, initialFaqPayload, { headers }); } 
-                catch (err) { console.error("캐러셀 발송 에러:", err.response ? err.response.data : err.message); }
-                
-            } // 👈 ⭐여기가 빠져 있었습니다! (상품 조건문 닫기)⭐
+                catch (err) { console.error("캐러셀 발송 에러:", err.response ? err.response.data : err.message); }  
+            }
             
             // 상품 없이 그냥 [톡톡하기]로 들어온 경우는 
             // 위 if문에 걸리지 않으므로 아무것도 보내지 않고 조용히 종료됩니다.
@@ -282,19 +281,43 @@ const chatbotMenuPayload = {
         compositeList: [
             {
                 title: "해우카메라 합정점",
-                description: "24시 무인보관함 운영 / 택배X",
+                description: "24시 무인보관함 운영 / 택배X\n\n궁금하신 항목을 아래 버튼에서 선택해 주세요.",
                 buttonList: [
-                    { type: "TEXT", name: "주문방법" },
-                    { type: "TEXT", name: "스케줄(재고) 문의" },
-                    { type: "TEXT", name: "수령/반납 방법" }
-                ]
-            },
-            {
-                title: "해우카메라 합정점",
-                description: "24시 무인보관함 운영 / 택배X",
-                buttonList: [
-                    { type: "TEXT", name: "위치/영업시간" },
-                    { type: "TEXT", name: "주차안내" }
+                    {
+                        type: "TEXT",
+                        data: {
+                            title: "주문방법",
+                            code: "주문방법"
+                        }
+                    },
+                    {
+                        type: "TEXT",
+                        data: {
+                            title: "스케줄(재고) 문의",
+                            code: "스케줄(재고) 문의"
+                        }
+                    },
+                    {
+                        type: "TEXT",
+                        data: {
+                            title: "수령/반납 방법",
+                            code: "수령/반납 방법"
+                        }
+                    },
+                    {
+                        type: "TEXT",
+                        data: {
+                            title: "위치/영업시간",
+                            code: "위치/영업시간"
+                        }
+                    },
+                    {
+                        type: "TEXT",
+                        data: {
+                            title: "주차안내",
+                            code: "주차안내"
+                        }
+                    }
                 ]
             }
         ]
@@ -309,34 +332,19 @@ try {
 
     // 2타: 문자 직후 하단에 FAQ 메뉴판을 콤보로 띄워주어 대화가 끊기지 않게 유도
     if (response.data && response.data.success) {
-        await axios.post(url, {
-            event: "send",
-            user: task.talkId,
-            compositeContent: {
-                compositeList: [
-                    {
-                        title: "해우카메라 합정점",
-                        description: "24시 무인보관함 운영 / 택배X",
-                        buttonList: [
-                            { type: "TEXT", name: "주문방법" },
-                            { type: "TEXT", name: "스케줄(재고) 문의" },
-                            { type: "TEXT", name: "수령/반납 방법" }
-                        ]
-                    },
-                    {
-                        title: "해우카메라 합정점",
-                        description: "24시 무인보관함 운영 / 택배X",
-                        buttonList: [
-                            { type: "TEXT", name: "위치/영업시간" },
-                            { type: "TEXT", name: "주차안내" }
-                        ]
-                    }
-                ]
-            }
-        }, { headers: headers });
+        await axios.post(url, chatbotMenuPayload, { headers: headers });
+        console.log("FAQ 캐러셀 발송 성공");
     }
     return response.data.success;
-} catch (error) { return false; }
+} catch (error) {
+    console.error(
+        "캐러셀 발송 실패:",
+        error.response?.status,
+        JSON.stringify(error.response?.data, null, 2)
+    );
+
+    return false;
+    }
 }
 
 // async function checkQueue() {

@@ -308,7 +308,14 @@ function App() {
               {filteredWebhook.map(c => (
                 <div key={c._id} style={styles.chatItem}>
                   <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <span style={{fontSize: '11px', color: '#94A3B8'}}>{new Date(c.receivedAt).toLocaleTimeString()}</span>
+                    <span style={{fontSize: '11px', color: '#94A3B8'}}>
+  {(() => {
+    const d = new Date(c.receivedAt);
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}(${days[d.getDay()]}) ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  })()}
+</span>
                     <div>
                       {/* 💡 [신규] 매칭 버튼 옆에 회색 삭제 버튼 추가 */}
                       <button onClick={() => connectId(c.talkId)} style={styles.actionBtn('blue')}>매칭</button>
@@ -319,7 +326,7 @@ function App() {
                 </div>
               ))}
             </div>
-            <button onClick={() => setActivePopupUser(null)} style={{width: '100%', marginTop: '16px', padding: '10px', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', background: '#282828', fontSize: '13px'}}>닫기</button>
+            <button onClick={() => setActivePopupUser(null)} style={{width: '100%', marginTop: '16px', padding: '10px', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', background: '#ffffff', fontSize: '13px'}}>닫기</button>
           </div>
         </div>
       )}

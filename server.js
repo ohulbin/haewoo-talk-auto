@@ -499,11 +499,11 @@ try {
         event: "send", user: task.talkId, textContent: { text: messageText }
     }, { headers: headers });
 
-    // 2타: 문자 직후 하단에 FAQ 메뉴판을 콤보로 띄워주어 대화가 끊기지 않게 유도
-    if (response.data && response.data.success) {
-        await axios.post(url, chatbotMenuPayload, { headers: headers });
-        console.log("FAQ 캐러셀 발송 성공");
-    }
+    // 예약문자 발송 후 FAQ 전송 삭제 2026.06.08
+    // if (response.data && response.data.success) {
+    //     await axios.post(url, chatbotMenuPayload, { headers: headers });
+    //     console.log("FAQ 캐러셀 발송 성공");
+    // }
     return response.data.success;
 } catch (error) {
     console.error(

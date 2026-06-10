@@ -517,26 +517,6 @@ try {
     }
 }
 
-// async function checkQueue() {
-//     const now = new Date();
-//     try {
-//         const activeTasks = await Reservation.find({ status: 'SCHEDULED' });
-//         for (let task of activeTasks) {
-//             const resTime = new Date(task.reservationTime);
-//             const targetTime = new Date(now.getTime() + (60 * 60 * 1000));
-//             const diff = Math.abs(resTime - targetTime);
-            
-//             // 💡 [수정] 오차 범위 5분 -> 1분 30초 (90 * 1000 ms)로 조여서 중복 실행 방지
-//             if (diff <= 90 * 1000) {
-//                 const isSent = await sendTalkMessage(task);
-//                 task.status = isSent ? 'SENT' : 'FAILED';
-//                 await task.save();
-//             }
-//         }
-//     } catch (error) { console.error(error); }
-// }
-// setInterval(checkQueue, 60000);
-
 app.listen(process.env.PORT || 5000, () => console.log(`🚀 서버 구동 중`));
 
 // ==========================================

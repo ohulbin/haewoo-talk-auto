@@ -139,7 +139,8 @@ function App() {
                   phone: item.contact,
                   reservationTime: dt,
                   lockerId: lockerKey, 
-                  pw: item.pw
+                  pw: item.pw,
+                  accessories: item.accessories || []
                 });
               }
             }

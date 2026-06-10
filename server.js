@@ -23,7 +23,8 @@ const reservationSchema = new mongoose.Schema({
     phone: { type: String, required: true }, 
     reservationTime: { type: Date, required: true },
     lockerId: { type: String, default: '' }, 
-    pw: { type: String, default: '' },       
+    pw: { type: String, default: '' },
+    accessories: { type: [String], default: [] },       
     talkId: { type: String, default: '' },
     status: { type: String, default: 'READY' }, 
     createdAt: { type: Date, default: Date.now }
@@ -75,7 +76,7 @@ app.post('/api/reservations/upload', async (req, res) => {
             const matchedUser = await TalkUser.findOne({ name: user.name, phone: user.phone });
             const newLog = new Reservation({
                 name: user.name, phone: user.phone, reservationTime: new Date(user.reservationTime),
-                lockerId: user.lockerId, pw: user.pw, talkId: matchedUser ? matchedUser.talkId : '', 
+                lockerId: user.lockerId, pw: user.pw, accessories: user.accessories || [], talkId: matchedUser ? matchedUser.talkId : '', 
                 status: matchedUser ? 'SCHEDULED' : 'READY'   
             });
             await newLog.save();

@@ -535,7 +535,29 @@ if (response.data && response.data.success && hasAccessoryGuide) {
             text: accessoryMessage
         }
     }, { headers });
-}
+
+    try {
+
+            // 이미지 발송
+            await axios.post(url, {
+                event: "send",
+                user: task.talkId,
+                imageContent: {
+                    imageUrl: "https://haewoo-talk-auto.onrender.com/images/return-box.jpg"
+                }
+            }, { headers });
+
+            console.log(`🖼️ 이미지 발송 성공: ${task.name}`);
+
+        } catch (imgError) {
+
+            console.error(
+                "🖼️ 이미지 발송 실패:",
+                imgError.response?.data || imgError.message
+            );
+
+        }
+    }
     return response.data.success;
 } catch (error) {
     console.error(

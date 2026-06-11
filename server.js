@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/images', express.static('public'));
 
 // ==========================================
 // 1. DB 연결 (환경변수)
@@ -411,7 +412,22 @@ async function sendTalkMessage(task) {
     const url = 'https://gw.talk.naver.com/chatbot/v1/event';
     const token = process.env.NAVER_TALK_TOKEN;
     const headers = { 'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8' };
+    // 악세사리 항목 추가 (보조배터리 / 리더기)
+    const accessories = task.accessories || [];
 
+    const accessoryTypes = [];
+
+    if (accessories.some(a => a.includes('리더기'))) {
+        accessoryTypes.push('리더기');
+    }
+
+    if (accessories.some(a => a.includes('보조배터리'))) {
+        accessoryTypes.push('보조배터리');
+    }
+
+    const accessoryType = accessoryTypes.join(', ');
+    const hasAccessoryGuide = accessoryTypes.length > 0;
+    
     const messageText = `[합정점 무인 수령 및 반납 안내]
 
 안녕하세요, ${task.name}님 😊
@@ -495,16 +511,31 @@ const chatbotMenuPayload = {
 };
 
 try {
-    // 1타: 무인 보관함 비밀번호 문자 전송
+    // 무인 보관함 비밀번호 문자 전송
     const response = await axios.post(url, {
         event: "send", user: task.talkId, textContent: { text: messageText }
     }, { headers: headers });
 
-    // 예약문자 발송 후 FAQ 전송 삭제 2026.06.08
-    // if (response.data && response.data.success) {
-    //     await axios.post(url, chatbotMenuPayload, { headers: headers });
-    //     console.log("FAQ 캐러셀 발송 성공");
-    // }
+    // 악세사리 발송
+if (response.data && response.data.success && hasAccessoryGuide) {
+
+    const accessoryMessage = `📦 추가 악세사리 보관함(${accessoryType})
+
+[03번] 보관함 (비밀번호 : [2401])
+
+* 보관함 내 다른 악세사리는 다른 예약 건으로 수량에 맞춰 준비되어 있습니다.
+꼭 결제하신 악세사리만 수령 부탁드립니다.
+
+반납은 외부에 있는 반납보관함에 넣어주시면 됩니다.`;
+
+    await axios.post(url, {
+        event: "send",
+        user: task.talkId,
+        textContent: {
+            text: accessoryMessage
+        }
+    }, { headers });
+}
     return response.data.success;
 } catch (error) {
     console.error(

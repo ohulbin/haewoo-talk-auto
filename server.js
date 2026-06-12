@@ -548,48 +548,48 @@ try {
         event: "send", user: task.talkId, textContent: { text: messageText }
     }, { headers: headers });
 
-    // 악세사리 발송
-if (response.data && response.data.success && hasAccessoryGuide) {
+    // 악세사리 발송 (현재 변수 발생으로 임시 주석 처리 6/12)
+// if (response.data && response.data.success && hasAccessoryGuide) {
 
-    const accessoryMessage = `📦 추가 악세사리 보관함(${accessoryType})
+//     const accessoryMessage = `📦 추가 악세사리 보관함(${accessoryType})
 
-[03번] 보관함 (비밀번호 : [${accessoryPw}])
+// [03번] 보관함 (비밀번호 : [${accessoryPw}])
 
-* 보관함 내 다른 악세사리는 다른 예약 건으로 수량에 맞춰 준비되어 있습니다.
-꼭 결제하신 악세사리만 수령 부탁드립니다.
+// * 보관함 내 다른 악세사리는 다른 예약 건으로 수량에 맞춰 준비되어 있습니다.
+// 꼭 결제하신 악세사리만 수령 부탁드립니다.
 
-반납은 외부에 있는 반납보관함에 넣어주시면 됩니다.`;
+// 반납은 외부에 있는 반납보관함에 넣어주시면 됩니다.`;
 
-    await axios.post(url, {
-        event: "send",
-        user: task.talkId,
-        textContent: {
-            text: accessoryMessage
-        }
-    }, { headers });
+//     await axios.post(url, {
+//         event: "send",
+//         user: task.talkId,
+//         textContent: {
+//             text: accessoryMessage
+//         }
+//     }, { headers });
 
-    try {
+//     try {
 
-            // 이미지 발송
-            await axios.post(url, {
-                event: "send",
-                user: task.talkId,
-                imageContent: {
-                    imageUrl: "https://haewoo-talk-auto.onrender.com/images/return-box.jpg"
-                }
-            }, { headers });
+//             // 이미지 발송
+//             await axios.post(url, {
+//                 event: "send",
+//                 user: task.talkId,
+//                 imageContent: {
+//                     imageUrl: "https://haewoo-talk-auto.onrender.com/images/return-box.jpg"
+//                 }
+//             }, { headers });
 
-            console.log(`🖼️ 이미지 발송 성공: ${task.name}`);
+//             console.log(`🖼️ 이미지 발송 성공: ${task.name}`);
 
-        } catch (imgError) {
+//         } catch (imgError) {
 
-            console.error(
-                "🖼️ 이미지 발송 실패:",
-                imgError.response?.data || imgError.message
-            );
+//             console.error(
+//                 "🖼️ 이미지 발송 실패:",
+//                 imgError.response?.data || imgError.message
+//             );
 
-        }
-    }
+//         }
+//     }
     return response.data.success;
 } catch (error) {
     console.error(

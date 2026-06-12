@@ -119,7 +119,9 @@ function App() {
       let extracted = [];
       try {
         const data = JSON.parse(event.target.result);
-        const uniqueCombinedSet = new Set(); 
+        const uniqueCombinedSet = new Set();
+        const accessoryLockerPw =
+          data.lockers?.["3"]?.[0]?.pw || "";
 
         for (const lockerKey in data.lockers) {
           const items = data.lockers[lockerKey];
@@ -154,7 +156,10 @@ function App() {
         const res = await fetch(`${BACKEND_URL}/api/reservations/upload`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(extracted)
+          body: JSON.stringify({
+            reservations: extracted,
+            accessoryLockerPw
+          })
         });
         const result = await res.json();
         if (result.success) setReservedList(result.data);

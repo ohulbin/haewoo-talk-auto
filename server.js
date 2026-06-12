@@ -47,6 +47,19 @@ const webhookCaptureSchema = new mongoose.Schema({
 });
 const WebhookCapture = mongoose.model('WebhookCapture', webhookCaptureSchema);
 
+const configSchema = new mongoose.Schema({
+    accessoryLockerPw: {
+        type: String,
+        default: ''
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
+    }
+});
+
+const Config = mongoose.model('Config', configSchema);
+
 // ==========================================
 // 3. API 엔드포인트 (누락된 전체 라우터 완벽 복구본)
 // ==========================================
@@ -62,7 +75,21 @@ app.get('/api/reservations', async (req, res) => {
 // 2. 명단 업로드 (과거 시간 필터링 적용 버전)
 app.post('/api/reservations/upload', async (req, res) => {
     try {
-        const incomingUsers = req.body; 
+        const { reservations, accessoryLockerPw } = req.body;
+
+        const incomingUsers = reservations;
+
+        await Config.findOneAndUpdate(
+    {},
+    {
+        accessoryLockerPw,
+        updatedAt: Date.now()
+    },
+    {
+        upsert: true
+    }
+);
+
         const incomingLockerIds = [...new Set(incomingUsers.map(u => u.lockerId))];
 
         await Reservation.deleteMany({ lockerId: { $in: incomingLockerIds }, status: { $ne: 'SENT' } });
@@ -427,6 +454,11 @@ async function sendTalkMessage(task) {
 
     const accessoryType = accessoryTypes.join(', ');
     const hasAccessoryGuide = accessoryTypes.length > 0;
+
+    const config = await Config.findOne();
+
+const accessoryPw =
+    config?.accessoryLockerPw || '확인필요';
     
     const messageText = `[합정점 무인 수령 및 반납 안내]
 
@@ -521,7 +553,7 @@ if (response.data && response.data.success && hasAccessoryGuide) {
 
     const accessoryMessage = `📦 추가 악세사리 보관함(${accessoryType})
 
-[03번] 보관함 (비밀번호 : [2401])
+[03번] 보관함 (비밀번호 : [${accessoryPw}])
 
 * 보관함 내 다른 악세사리는 다른 예약 건으로 수량에 맞춰 준비되어 있습니다.
 꼭 결제하신 악세사리만 수령 부탁드립니다.

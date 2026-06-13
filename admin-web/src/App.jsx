@@ -161,9 +161,14 @@ function App() {
             accessoryLockerPw
           })
         });
+        console.log('응답코드:', res.status);
+        
         const result = await res.json();
         if (result.success) setReservedList(result.data);
-      } catch (e) { alert('서버 연결 실패'); }
+      } catch (e) { 
+        console.error(e);
+        alert(e.message); 
+      }
     };
     reader.readAsText(file);
     e.target.value = null;

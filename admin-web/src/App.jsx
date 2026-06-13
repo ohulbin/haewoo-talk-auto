@@ -117,6 +117,8 @@ function App() {
     const reader = new FileReader();
     reader.onload = async (event) => {
       let extracted = [];
+      let accessoryLockerPw = "";
+      
       try {
         const data = JSON.parse(event.target.result);
         const uniqueCombinedSet = new Set();
@@ -162,7 +164,7 @@ function App() {
           })
         });
         console.log('응답코드:', res.status);
-        
+
         const result = await res.json();
         if (result.success) setReservedList(result.data);
       } catch (e) { 

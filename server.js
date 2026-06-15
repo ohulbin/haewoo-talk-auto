@@ -25,7 +25,8 @@ const reservationSchema = new mongoose.Schema({
     reservationTime: { type: Date, required: true },
     lockerId: { type: String, default: '' }, 
     pw: { type: String, default: '' },
-    accessories: { type: [String], default: [] },       
+    accessories: { type: [String], default: [] },
+    equipment: { type: String, default: '' }, // 💡 [필수 적용] 기기명 DB 저장 칸
     talkId: { type: String, default: '' },
     status: { type: String, default: 'READY' }, 
     createdAt: { type: Date, default: Date.now }
@@ -72,46 +73,76 @@ app.get('/api/reservations', async (req, res) => {
     } catch (error) { res.status(500).send({ success: false, error: error.message }); }
 });
 
-// 2. 명단 업로드 (과거 시간 필터링 적용 버전)
+// 2. 명단 업로드 (상태값 절대 방어 및 서버 로그 추적 버전)
 app.post('/api/reservations/upload', async (req, res) => {
     try {
         const { reservations, accessoryLockerPw } = req.body;
-
         const incomingUsers = reservations;
 
         await Config.findOneAndUpdate(
-    {},
-    {
-        accessoryLockerPw,
-        updatedAt: Date.now()
-    },
-    {
-        upsert: true
-    }
-);
-
-        const incomingLockerIds = [...new Set(incomingUsers.map(u => u.lockerId))];
-
-        await Reservation.deleteMany({ lockerId: { $in: incomingLockerIds }, status: { $ne: 'SENT' } });
+            {},
+            { accessoryLockerPw, updatedAt: Date.now() },
+            { upsert: true }
+        );
 
         for (let user of incomingUsers) {
-            // 과거 시간 데이터 필터링
+            // 이미 예약 시간이 지난 과거 데이터는 아예 무시
             if (new Date(user.reservationTime) < new Date()) continue;
 
-            const isAlreadySent = await Reservation.findOne({ phone: user.phone, lockerId: user.lockerId, status: 'SENT' });
-            if (isAlreadySent) continue; 
+            // 공백이나 띄어쓰기로 인한 불일치를 막기 위해 강제 트림(trim)
+            const safePhone = user.phone ? user.phone.trim() : '';
+            const safeLocker = user.lockerId ? user.lockerId.trim() : '';
 
-            const matchedUser = await TalkUser.findOne({ name: user.name, phone: user.phone });
-            const newLog = new Reservation({
-                name: user.name, phone: user.phone, reservationTime: new Date(user.reservationTime),
-                lockerId: user.lockerId, pw: user.pw, accessories: user.accessories || [], talkId: matchedUser ? matchedUser.talkId : '', 
-                status: matchedUser ? 'SCHEDULED' : 'READY'   
-            });
-            await newLog.save();
+            // 동일한 번호와 보관함으로 등록된 가장 최근 명단을 하나 찾음
+            const existingReservation = await Reservation.findOne({
+                phone: safePhone,
+                lockerId: safeLocker
+            }).sort({ createdAt: -1 });
+
+            if (existingReservation) {
+                // 💡 [절대 방어] save() 대신 updateOne()을 사용!
+                // Mongoose의 다른 설정이나 톡톡 연동 조건이 개입할 틈을 주지 않고,
+                // 오직 '시간, 비밀번호, 악세사리, 기기명' 딱 4가지만 강제로 업데이트함.
+                console.log(`[🟢 업데이트 유지] ${user.name} 고객님 명단 발견. 현재 상태(${existingReservation.status})를 그대로 보존합니다.`);
+                
+                await Reservation.updateOne(
+                    { _id: existingReservation._id },
+                    {
+                        $set: {
+                            name: user.name,
+                            reservationTime: new Date(user.reservationTime),
+                            pw: user.pw,
+                            accessories: user.accessories || [],
+                            equipment: user.equipment || ''
+                        }
+                    }
+                );
+            } else {
+                // 💡 [신규 등록] 기존 명단이 아예 없거나, '삭제' 버튼으로 완전히 지운 경우에만 실행
+                console.log(`[🔴 신규 등록] ${user.name} 고객님의 기존 명단이 없어 새로 등록합니다.`);
+                
+                const matchedUser = await TalkUser.findOne({ phone: safePhone });
+                const newLog = new Reservation({
+                    name: user.name, 
+                    phone: safePhone, 
+                    reservationTime: new Date(user.reservationTime),
+                    lockerId: safeLocker, 
+                    pw: user.pw, 
+                    accessories: user.accessories || [], 
+                    equipment: user.equipment || '', 
+                    talkId: matchedUser ? matchedUser.talkId : '', 
+                    status: matchedUser ? 'SCHEDULED' : 'READY'   
+                });
+                await newLog.save();
+            }
         }
+        
         const updatedList = await Reservation.find().sort({ reservationTime: 1 });
         res.send({ success: true, data: updatedList });
-    } catch (error) { res.status(500).send({ success: false, error: error.message }); }
+    } catch (error) { 
+        console.error("업로드 에러:", error);
+        res.status(500).send({ success: false, error: error.message }); 
+    }
 });
 
 // 3. 웹훅 수신함 불러오기 및 개별 삭제
@@ -459,6 +490,9 @@ async function sendTalkMessage(task) {
 
 const accessoryPw =
     config?.accessoryLockerPw || '확인필요';
+
+    // 10000번 이상 여부를 체크하는 변수를 하나 만들고 적용합니다.
+    const displayLocker = Number(task.lockerId) >= 10000 ? '[외부 보관]' : `[${task.lockerId}번] 보관함 (비밀번호 : [${task.pw}])`;
     
     const messageText = `[합정점 무인 수령 및 반납 안내]
 
@@ -475,7 +509,7 @@ const accessoryPw =
 ** 예약 시간 내에만 수령·반납 가능합니다 **
 
 📦 3. 보관함 수령 및 반납
-보관함 정보 : [${task.lockerId}번] 보관함 (비밀번호 : [${task.pw}])
+보관함 정보 : ${displayLocker}
 🚨 절대 다이얼 비밀번호를 변경하지 말아주세요.
 
 반납 방법 : 수령 시와 동일한 비밀번호로 문을 열고 반납해 주세요.

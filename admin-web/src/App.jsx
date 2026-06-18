@@ -201,6 +201,16 @@ function App() {
               const combinedKey = `${item.contact}_${lockerKey}`;
 
               if (!uniqueCombinedSet.has(combinedKey)) {
+                // 현재 화면(reservedList)에 이미 'SENT' 상태로 존재하는 예약이라면?
+                // 서버로 보낼 업로드 배열에 아예 포함시키지 않고 스킵합니다!
+                const isAlreadySent = reservedList.some(
+                    r => r.phone === item.contact && r.lockerId === lockerKey && r.status === 'SENT'
+                );
+                
+                if (isAlreadySent) {
+                    return; // forEach문 안에서 return은 continue와 같음 (추출 스킵)
+                }
+
                 uniqueCombinedSet.add(combinedKey);
                 const dt = `${item.startDate}T${item.startTime}:00+09:00`;
                 extracted.push({

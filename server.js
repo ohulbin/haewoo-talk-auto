@@ -85,6 +85,27 @@ app.post('/api/reservations/upload', async (req, res) => {
             { upsert: true }
         );
 
+        // =========================================================================
+        // ⭐ [신규 추가] 자동 동기화 로직: 새 명단에 없는 기존 대기자(READY, SCHEDULED) 완전 삭제
+        // =========================================================================
+        
+        // 1. 방금 업로드된 새 명단의 고유 식별값(연락처+보관함)을 배열로 만듭니다.
+        const incomingKeys = incomingUsers.map(u => `${u.phone ? u.phone.trim() : ''}_${u.lockerId ? u.lockerId.trim() : ''}`);
+
+        // 2. DB에서 발송 전인 대기자(READY, SCHEDULED)만 싹 불러옵니다. (SENT, CANCELLED는 제외하여 안전하게 보호)
+        const activeReservations = await Reservation.find({ status: { $in: ['READY', 'SCHEDULED'] } });
+
+        for (let dbUser of activeReservations) {
+            const dbKey = `${dbUser.phone}_${dbUser.lockerId}`;
+            
+            // 3. DB에는 대기 중인데, 방금 올린 새 명단에 없다면? -> 예약이 해제된 것!
+            if (!incomingKeys.includes(dbKey)) {
+                // 상태 변경이 아니라 아예 DB에서 지워버립니다. (화면에서 즉시 사라짐)
+                await Reservation.deleteOne({ _id: dbUser._id });
+            }
+        }
+        // =========================================================================
+
         for (let user of incomingUsers) {
             // 이미 예약 시간이 지난 과거 데이터는 아예 무시
             if (new Date(user.reservationTime) < new Date()) continue;

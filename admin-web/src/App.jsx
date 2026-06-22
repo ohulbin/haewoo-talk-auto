@@ -138,6 +138,9 @@ function App() {
 
   const [isDragging, setIsDragging] = useState(false);
   const [assigneeName, setAssigneeName] = useState('');
+  
+  // ⭐ [추가됨] 체크된 명단의 ID를 담는 배열 상태
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const BACKEND_URL = 'https://haewoo-talk-auto.onrender.com';
 
@@ -204,11 +207,11 @@ function App() {
                 // 현재 화면(reservedList)에 이미 'SENT' 상태로 존재하는 예약이라면?
                 // 서버로 보낼 업로드 배열에 아예 포함시키지 않고 스킵합니다!
                 const isAlreadySent = reservedList.some(
-                    r => r.phone === item.contact && r.lockerId === lockerKey && r.status === 'SENT'
+                  r => r.phone === item.contact && r.lockerId === lockerKey && r.status === 'SENT'
                 );
                 
                 if (isAlreadySent) {
-                    return; // forEach문 안에서 return은 continue와 같음 (추출 스킵)
+                  return; // forEach문 안에서 return은 continue와 같음 (추출 스킵)
                 }
 
                 uniqueCombinedSet.add(combinedKey);
@@ -316,6 +319,7 @@ function App() {
     }
   };
 
+  // 기존 삭제 기능은 그대로 유지하되, 현재 개별 삭제 버튼은 주석/삭제 처리됨.
   const deleteTask = async (id) => {
     if (window.confirm('명단에서 완전히 삭제하시겠습니까?')) {
       await fetch(`${BACKEND_URL}/api/reservations/${id}`, { method: 'DELETE' });
@@ -335,6 +339,38 @@ function App() {
       } else {
         localStorage.removeItem('hw_assignee');
       }
+    }
+  };
+
+  // ⭐ [추가됨] 체크박스 전체 선택 / 해제 토글 핸들러
+  const handleToggleSelectAll = (e) => {
+    if (e.target.checked) {
+      // safeReservedList의 모든 ID를 배열로 맵핑해서 넣음
+      setSelectedIds(safeReservedList.map(u => u._id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  // ⭐ [추가됨] 개별 체크박스 토글 핸들러
+  const handleToggleSelect = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  // ⭐ [추가됨] 선택된 명단 일괄 삭제 핸들러 (기존 DELETE API를 Promise.all로 병렬 요청)
+  const handleDeleteSelected = async () => {
+    if (!window.confirm(`선택한 ${selectedIds.length}개의 명단을 완전히 삭제하시겠습니까?`)) return;
+
+    try {
+      await Promise.all(
+        selectedIds.map(id => fetch(`${BACKEND_URL}/api/reservations/${id}`, { method: 'DELETE' }))
+      );
+      setSelectedIds([]); // 삭제 후 선택 초기화
+      fetchReservations(); // 명단 새로고침
+    } catch (e) {
+      alert("일괄 삭제 중 오류가 발생했습니다.");
     }
   };
 
@@ -398,6 +434,30 @@ function App() {
         
         ::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* ⭐ [추가됨] 플로팅 삭제 버튼 애니메이션 CSS (토스 스타일 개선) */
+        .floating-delete-bar {
+          position: fixed;
+          bottom: 40px;
+          left: 50%;
+          transform: translateX(-50%) translateY(150px);
+          background-color: #333D4B;
+          color: #FFFFFF;
+          padding: 14px 20px 14px 28px;
+          border-radius: 32px;
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+          display: flex;
+          align-items: center;
+          gap: 24px;
+          transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease;
+          z-index: 1000;
+          opacity: 0;
+          backdrop-filter: blur(8px);
+        }
+        .floating-delete-bar.show {
+          transform: translateX(-50%) translateY(0);
+          opacity: 1;
+        }
       `}</style>
 
       <header style={styles.headerContainer}>
@@ -441,15 +501,24 @@ function App() {
         <table style={styles.table}>
           <thead>
             <tr>
+              {/* ⭐ [추가됨] 전체 선택 체크박스 열 */}
+              <th style={{...styles.th, width: '4%'}}>
+                <input 
+                  type="checkbox" 
+                  checked={selectedIds.length === safeReservedList.length && safeReservedList.length > 0} 
+                  onChange={handleToggleSelectAll} 
+                  style={{cursor: 'pointer', accentColor: theme.primary, width: '16px', height: '16px'}}
+                />
+              </th>
               <th style={{...styles.th, width: '7%'}}>고객명</th>
               <th style={{...styles.th, width: '11%'}}>연락처</th>
               <th style={{...styles.th, width: '14%'}}>예약 시간</th>
-              <th style={{...styles.th, width: '16%'}}>대여 기기</th>
-              <th style={{...styles.th, width: '13%'}}>악세사리</th>
+              <th style={{...styles.th, width: '15%'}}>대여 기기</th>
+              <th style={{...styles.th, width: '12%'}}>악세사리</th>
               <th style={{...styles.th, width: '9%'}}>보관함(비번)</th>
               <th style={{...styles.th, width: '10%'}}>톡톡 ID</th>
               <th style={{...styles.th, width: '7%'}}>상태</th>
-              <th style={{...styles.th, width: '13%'}}>관리</th> 
+              <th style={{...styles.th, width: '11%'}}>관리</th> 
             </tr>
           </thead>
           <tbody>
@@ -457,8 +526,23 @@ function App() {
               const displayEquipment = u.equipment || '-';
               const displayAccessories = Array.isArray(u.accessories) && u.accessories.length > 0 ? u.accessories.join(', ') : '-';
               
-              return (
-              <tr key={u._id} className="hover-row">
+            return (
+              <tr 
+                key={u._id} 
+                className="hover-row"
+                onClick={() => handleToggleSelect(u._id)} // 💡 행 클릭 시 체크 토글
+                style={{ cursor: 'pointer' }} // 💡 클릭 가능한 영역임을 마우스 커서로 표시
+              >
+                {/* ⭐ [추가됨] 개별 체크박스 */}
+                <td style={styles.td}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedIds.includes(u._id)} 
+                    onChange={() => handleToggleSelect(u._id)} 
+                    onClick={(e) => e.stopPropagation()} // 💡 체크박스 직접 클릭 시 이벤트 중복 실행 방지
+                    style={{cursor: 'pointer', accentColor: theme.primary, width: '16px', height: '16px'}}
+                  />
+                </td>
                 <td style={{...styles.td, fontWeight: '700', color: theme.textMain}}>{u.name || '이름없음'}</td>
                 <td style={styles.td}>{u.phone}</td>
                 <td style={{...styles.td, fontWeight: '500'}}>{new Date(u.reservationTime).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
@@ -479,10 +563,24 @@ function App() {
                 
                 <td style={{...styles.td, overflow: 'visible', textOverflow: 'clip'}}>
                   {u.status !== 'SENT' && (
-                    <button onClick={() => openPopup(u)} style={styles.actionBtn('blue')} className="btn-action">{u.talkId ? '변경' : '연결'}</button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); openPopup(u); }} // 💡 관리 버튼 클릭 시 행(Row) 선택되는 현상 방지
+                      style={styles.actionBtn('blue')} 
+                      className="btn-action"
+                    >
+                      {u.talkId ? '변경' : '연결'}
+                    </button>
                   )}
-                  {u.status === 'SCHEDULED' && <button onClick={() => cancelTask(u._id)} style={styles.actionBtn('red')} className="btn-action">취소</button>}
-                  <button onClick={() => deleteTask(u._id)} style={styles.actionBtn('gray')} className="btn-action">삭제</button>
+                  {u.status === 'SCHEDULED' && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); cancelTask(u._id); }} // 💡 관리 버튼 클릭 시 행(Row) 선택되는 현상 방지
+                      style={styles.actionBtn('red')} 
+                      className="btn-action"
+                    >
+                      취소
+                    </button>
+                  )}
+                  {/* ⭐ 기존 단건 삭제 버튼은 제거되었습니다. */}
                 </td>
               </tr>
             )})}
@@ -545,6 +643,26 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* ⭐ [추가됨] 플로팅 일괄 삭제 버튼 */}
+      <div className={`floating-delete-bar ${selectedIds.length > 0 ? 'show' : ''}`}>
+        <span style={{fontWeight: '700', fontSize: '15px', letterSpacing: '-0.3px'}}>
+          {selectedIds.length}개 선택됨
+        </span>
+        <button 
+          onClick={handleDeleteSelected}
+          style={{
+            backgroundColor: theme.danger, color: '#FFFFFF', border: 'none', 
+            padding: '12px 24px', borderRadius: '24px', fontWeight: '700', 
+            fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(240, 68, 82, 0.3)',
+            transition: 'all 0.2s ease', letterSpacing: '-0.3px'
+          }}
+          className="btn-action"
+        >
+          일괄 삭제
+        </button>
+      </div>
+
     </div>
   );
 }

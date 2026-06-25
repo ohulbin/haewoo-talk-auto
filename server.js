@@ -493,19 +493,19 @@ async function sendTalkMessage(task) {
     const headers = { 'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8' };
     // 악세사리 항목 추가 (보조배터리 / 리더기)
     const accessories = task.accessories || [];
+    const hasTripodGuide = accessories.some(a => a.includes('삼각대'));
+    // const accessoryTypes = [];
 
-    const accessoryTypes = [];
+    // if (accessories.some(a => a.includes('리더기'))) {
+    //     accessoryTypes.push('리더기');
+    // }
 
-    if (accessories.some(a => a.includes('리더기'))) {
-        accessoryTypes.push('리더기');
-    }
+    // if (accessories.some(a => a.includes('보조배터리'))) {
+    //     accessoryTypes.push('보조배터리');
+    // }
 
-    if (accessories.some(a => a.includes('보조배터리'))) {
-        accessoryTypes.push('보조배터리');
-    }
-
-    const accessoryType = accessoryTypes.join(', ');
-    const hasAccessoryGuide = accessoryTypes.length > 0;
+    // const accessoryType = accessoryTypes.join(', ');
+    // const hasAccessoryGuide = accessoryTypes.length > 0;
 
     const config = await Config.findOne();
 
@@ -603,48 +603,41 @@ try {
         event: "send", user: task.talkId, textContent: { text: messageText }
     }, { headers: headers });
 
-    // 악세사리 발송 (현재 변수 발생으로 임시 주석 처리 6/12)
-// if (response.data && response.data.success && hasAccessoryGuide) {
+    // 삼각대 발송
+if (response.data && response.data.success && hasTripodGuide) {
 
-//     const accessoryMessage = `📦 추가 악세사리 보관함(${accessoryType})
+    const tripodMessage = `삼각대는 외부에 보관되어 직접 1개 수령 후 반납 시 빈자리에 넣어주시고 인증사진 남겨주시면 됩니다.`;
 
-// [03번] 보관함 (비밀번호 : [${accessoryPw}])
+    await axios.post(url, {
+        event: "send",
+        user: task.talkId,
+        textContent: {
+            text: tripodMessage
+        }
+    }, { headers });
 
-// * 보관함 내 다른 악세사리는 다른 예약 건으로 수량에 맞춰 준비되어 있습니다.
-// 꼭 결제하신 악세사리만 수령 부탁드립니다.
+    try {
 
-// 반납은 외부에 있는 반납보관함에 넣어주시면 됩니다.`;
+            // 이미지 발송
+            await axios.post(url, {
+                event: "send",
+                user: task.talkId,
+                imageContent: {
+                    imageUrl: "https://haewoo-talk-auto.onrender.com/images/tripod.png"
+                }
+            }, { headers });
 
-//     await axios.post(url, {
-//         event: "send",
-//         user: task.talkId,
-//         textContent: {
-//             text: accessoryMessage
-//         }
-//     }, { headers });
+            console.log(`🖼️ 이미지 발송 성공: ${task.name}`);
 
-//     try {
+        } catch (imgError) {
 
-//             // 이미지 발송
-//             await axios.post(url, {
-//                 event: "send",
-//                 user: task.talkId,
-//                 imageContent: {
-//                     imageUrl: "https://haewoo-talk-auto.onrender.com/images/return-box.jpg"
-//                 }
-//             }, { headers });
+            console.error(
+                "🖼️ 이미지 발송 실패:",
+                imgError.response?.data || imgError.message
+            );
 
-//             console.log(`🖼️ 이미지 발송 성공: ${task.name}`);
-
-//         } catch (imgError) {
-
-//             console.error(
-//                 "🖼️ 이미지 발송 실패:",
-//                 imgError.response?.data || imgError.message
-//             );
-
-//         }
-//     }
+        }
+    }
     return response.data.success;
 } catch (error) {
     console.error(

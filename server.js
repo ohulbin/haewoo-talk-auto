@@ -623,7 +623,7 @@ if (response.data && response.data.success && hasTripodGuide) {
                 event: "send",
                 user: task.talkId,
                 imageContent: {
-                    imageUrl: "https://haewoo-talk-auto.onrender.com/images/tripod.png"
+                    imageUrl: "https://haewoo-talk-auto.onrender.com/images/tripod.jpg"
                 }
             }, { headers });
 

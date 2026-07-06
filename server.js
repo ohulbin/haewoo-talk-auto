@@ -507,16 +507,16 @@ async function sendTalkMessage(task) {
     const equipmentImageUrls = []; // 여러 장을 담기 위해 배열([ ])로 변경
 
     // 나머지는 서로 간섭하지 않도록 전부 독립된 'if'문으로 분리합니다.
-    if (equipmentStr.includes('스탠바이미GO')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/standbymego.jpg');
+    if (equipmentStr.includes('스탠바이미 GO')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/standbymego.jpg');
     if (equipmentStr.includes('스탠바이미2')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/standbyme2.jpg');
-    if (equipmentStr.includes('파티박스32')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/partybox32.jpg');
-    if (equipmentStr.includes('아마란')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/amaran300c.jpg');
-    if (equipmentStr.includes('어벤저')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/avenger.jpg');
-    if (equipmentStr.includes('브리츠')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/britz.jpg');
-    if (equipmentStr.includes('프리스타일')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/freestyle.jpg');
+    if (equipmentStr.includes('파티박스 320')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/partybox32.jpg');
     if (equipmentStr.includes('CP1500')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/cp1500.jpg');
-    if (equipmentStr.includes('E6')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/e6.jpg');
-    if (equipmentStr.includes('HF65LA')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/hf65la.jpg');
+    //if (equipmentStr.includes('아마란')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/amaran300c.jpg');
+    //if (equipmentStr.includes('어벤저')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/avenger.jpg');
+    //if (equipmentStr.includes('브리츠')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/britz.jpg');
+    //if (equipmentStr.includes('프리스타일')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/freestyle.jpg');
+    //if (equipmentStr.includes('E6')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/e6.jpg');
+    //if (equipmentStr.includes('HF65LA')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/hf65la.jpg');
     // =========================================================
 
     const config = await Config.findOne();

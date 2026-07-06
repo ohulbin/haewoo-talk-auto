@@ -345,8 +345,8 @@ function App() {
   // ⭐ [추가됨] 체크박스 전체 선택 / 해제 토글 핸들러
   const handleToggleSelectAll = (e) => {
     if (e.target.checked) {
-      // safeReservedList의 모든 ID를 배열로 맵핑해서 넣음
-      setSelectedIds(safeReservedList.map(u => u._id));
+      // 👇 safeReservedList -> sortedReservedList 로 변경
+      setSelectedIds(sortedReservedList.map(u => u._id));
     } else {
       setSelectedIds([]);
     }
@@ -375,6 +375,18 @@ function App() {
   };
 
   const safeReservedList = Array.isArray(reservedList) ? reservedList : [];
+
+  // ⭐ [추가됨] 예약시간 기준 오름차순 정렬 (시간이 동일하면 이름순 정렬)
+  const sortedReservedList = [...safeReservedList].sort((a, b) => {
+    const timeA = new Date(a.reservationTime).getTime();
+    const timeB = new Date(b.reservationTime).getTime();
+    
+    if (timeA === timeB) {
+      return (a.name || '').localeCompare(b.name || '');
+    }
+    return timeA - timeB;
+  });
+  
   const safeWebhookList = Array.isArray(webhookList) ? webhookList : [];
 
   const filteredWebhook = safeWebhookList.filter(c => c?.lastMessage?.includes(searchTerm));
@@ -522,7 +534,7 @@ function App() {
             </tr>
           </thead>
           <tbody>
-            {safeReservedList.map(u => {
+            {sortedReservedList.map(u => {
               const displayEquipment = u.equipment || '-';
               const displayAccessories = Array.isArray(u.accessories) && u.accessories.length > 0 ? u.accessories.join(', ') : '-';
               
@@ -537,9 +549,9 @@ function App() {
                 <td style={styles.td}>
                   <input 
                     type="checkbox" 
-                    checked={selectedIds.includes(u._id)} 
-                    onChange={() => handleToggleSelect(u._id)} 
-                    onClick={(e) => e.stopPropagation()} // 💡 체크박스 직접 클릭 시 이벤트 중복 실행 방지
+                    // 👇 safeReservedList를 sortedReservedList로 변경
+                    checked={selectedIds.length === sortedReservedList.length && sortedReservedList.length > 0} 
+                    onChange={handleToggleSelectAll} 
                     style={{cursor: 'pointer', accentColor: theme.primary, width: '16px', height: '16px'}}
                   />
                 </td>

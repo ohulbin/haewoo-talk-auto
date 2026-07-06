@@ -533,7 +533,7 @@ function App() {
               <th style={{...styles.th, width: '11%'}}>관리</th> 
             </tr>
           </thead>
-          <tbody>
+<tbody>
             {sortedReservedList.map(u => {
               const displayEquipment = u.equipment || '-';
               const displayAccessories = Array.isArray(u.accessories) && u.accessories.length > 0 ? u.accessories.join(', ') : '-';
@@ -542,16 +542,19 @@ function App() {
               <tr 
                 key={u._id} 
                 className="hover-row"
-                onClick={() => handleToggleSelect(u._id)} // 💡 행 클릭 시 체크 토글
-                style={{ cursor: 'pointer' }} // 💡 클릭 가능한 영역임을 마우스 커서로 표시
+                // 💡 다시 추가됨: 행(라인) 전체를 클릭해도 체크박스가 토글됩니다.
+                onClick={() => handleToggleSelect(u._id)} 
+                style={{ cursor: 'pointer' }}
               >
-                {/* ⭐ [추가됨] 개별 체크박스 */}
                 <td style={styles.td}>
                   <input 
                     type="checkbox" 
-                    // 👇 safeReservedList를 sortedReservedList로 변경
-                    checked={selectedIds.length === sortedReservedList.length && sortedReservedList.length > 0} 
-                    onChange={handleToggleSelectAll} 
+                    // 💡 올바른 개별 체크 조건
+                    checked={selectedIds.includes(u._id)} 
+                    // 💡 올바른 개별 토글 함수
+                    onChange={() => handleToggleSelect(u._id)} 
+                    // 💡 체크박스를 직접 클릭했을 때 행 클릭 이벤트와 겹쳐서 두 번 실행되는 것을 방지
+                    onClick={(e) => e.stopPropagation()} 
                     style={{cursor: 'pointer', accentColor: theme.primary, width: '16px', height: '16px'}}
                   />
                 </td>
@@ -576,7 +579,7 @@ function App() {
                 <td style={{...styles.td, overflow: 'visible', textOverflow: 'clip'}}>
                   {u.status !== 'SENT' && (
                     <button 
-                      onClick={(e) => { e.stopPropagation(); openPopup(u); }} // 💡 관리 버튼 클릭 시 행(Row) 선택되는 현상 방지
+                      onClick={(e) => { e.stopPropagation(); openPopup(u); }} 
                       style={styles.actionBtn('blue')} 
                       className="btn-action"
                     >
@@ -585,14 +588,13 @@ function App() {
                   )}
                   {u.status === 'SCHEDULED' && (
                     <button 
-                      onClick={(e) => { e.stopPropagation(); cancelTask(u._id); }} // 💡 관리 버튼 클릭 시 행(Row) 선택되는 현상 방지
+                      onClick={(e) => { e.stopPropagation(); cancelTask(u._id); }} 
                       style={styles.actionBtn('red')} 
                       className="btn-action"
                     >
                       취소
                     </button>
                   )}
-                  {/* ⭐ 기존 단건 삭제 버튼은 제거되었습니다. */}
                 </td>
               </tr>
             )})}

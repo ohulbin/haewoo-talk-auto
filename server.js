@@ -510,7 +510,7 @@ async function sendTalkMessage(task) {
     if (equipmentStr.includes('스탠바이미GO')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/standbymego.jpg');
     if (equipmentStr.includes('스탠바이미2')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/standbyme2.jpg');
     if (equipmentStr.includes('파티박스32')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/partybox32.jpg');
-    if (equipmentStr.includes('아마란360C')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/amaran360c.jpg');
+    if (equipmentStr.includes('아마란')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/amaran300c.jpg');
     if (equipmentStr.includes('어벤저')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/avenger.jpg');
     if (equipmentStr.includes('브리츠')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/britz.jpg');
     if (equipmentStr.includes('프리스타일')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/freestyle.jpg');

@@ -509,7 +509,7 @@ async function sendTalkMessage(task) {
     // 나머지는 서로 간섭하지 않도록 전부 독립된 'if'문으로 분리합니다.
     if (equipmentStr.includes('스탠바이미 GO')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/standbymego.jpg');
     if (equipmentStr.includes('스탠바이미2')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/standbyme2.jpg');
-    if (equipmentStr.includes('파티박스 320')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/partybox32.jpg');
+    if (equipmentStr.includes('파티박스 320')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/partybox320.jpg');
     if (equipmentStr.includes('CP1500')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/cp1500.jpg');
     //if (equipmentStr.includes('아마란')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/amaran300c.jpg');
     //if (equipmentStr.includes('어벤저')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/avenger.jpg');

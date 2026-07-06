@@ -44,7 +44,11 @@ const TalkUser = mongoose.model('TalkUser', talkUserSchema);
 const webhookCaptureSchema = new mongoose.Schema({
     talkId: { type: String, required: true, unique: true },
     lastMessage: { type: String, default: '' },
-    receivedAt: { type: Date, default: Date.now }
+    receivedAt: { 
+        type: Date, 
+        default: Date.now,
+        expires: '30d' // 💡 데이터 생성 후 30일이 지나면 MongoDB가 백그라운드에서 자동 삭제
+    }
 });
 const WebhookCapture = mongoose.model('WebhookCapture', webhookCaptureSchema);
 
@@ -169,7 +173,7 @@ app.post('/api/reservations/upload', async (req, res) => {
 // 3. 웹훅 수신함 불러오기 및 개별 삭제
 app.get('/api/webhook-captures', async (req, res) => {
     try {
-        const captures = await WebhookCapture.find().sort({ receivedAt: -1 }).limit(500);
+        const captures = await WebhookCapture.find().sort({ receivedAt: -1 }).limit(1000);
         res.send(captures);
     } catch (error) { res.status(500).send({ success: false }); }
 });
@@ -491,21 +495,29 @@ async function sendTalkMessage(task) {
     const url = 'https://gw.talk.naver.com/chatbot/v1/event';
     const token = process.env.NAVER_TALK_TOKEN;
     const headers = { 'Authorization': token, 'Content-Type': 'application/json;charset=UTF-8' };
+
     // 악세사리 항목 추가 (보조배터리 / 리더기)
     const accessories = task.accessories || [];
     const hasTripodGuide = accessories.some(a => a.includes('삼각대'));
-    // const accessoryTypes = [];
 
-    // if (accessories.some(a => a.includes('리더기'))) {
-    //     accessoryTypes.push('리더기');
-    // }
+    // =========================================================
+    // 💡 [수정] 다중 기기 주문 시 모든 기기의 이미지 URL을 담는 로직
+    // =========================================================
+    const equipmentStr = task.equipment || '';
+    const equipmentImageUrls = []; // 여러 장을 담기 위해 배열([ ])로 변경
 
-    // if (accessories.some(a => a.includes('보조배터리'))) {
-    //     accessoryTypes.push('보조배터리');
-    // }
-
-    // const accessoryType = accessoryTypes.join(', ');
-    // const hasAccessoryGuide = accessoryTypes.length > 0;
+    // 나머지는 서로 간섭하지 않도록 전부 독립된 'if'문으로 분리합니다.
+    if (equipmentStr.includes('스탠바이미GO')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/standbymego.jpg');
+    if (equipmentStr.includes('스탠바이미2')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/standbyme2.jpg');
+    if (equipmentStr.includes('파티박스32')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/partybox32.jpg');
+    if (equipmentStr.includes('아마란360C')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/amaran360c.jpg');
+    if (equipmentStr.includes('어벤저')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/avenger.jpg');
+    if (equipmentStr.includes('브리츠')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/britz.jpg');
+    if (equipmentStr.includes('프리스타일')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/freestyle.jpg');
+    if (equipmentStr.includes('CP1500')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/cp1500.jpg');
+    if (equipmentStr.includes('E6')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/e6.jpg');
+    if (equipmentStr.includes('HF65LA')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/hf65la.jpg');
+    // =========================================================
 
     const config = await Config.findOne();
 
@@ -638,6 +650,33 @@ if (response.data && response.data.success && hasTripodGuide) {
 
         }
     }
+
+    // =========================================================
+    // 💡 [신규] 배열에 담긴 기기 수만큼 반복해서 이미지를 개별 발송하는 로직
+    // =========================================================
+    if (response.data && response.data.success && equipmentImageUrls.length > 0) {
+        // 배열 안에 담긴 이미지 주소를 하나씩 꺼내서 전부 발송합니다.
+        for (const imgUrl of equipmentImageUrls) {
+            try {
+                await axios.post(url, {
+                    event: "send",
+                    user: task.talkId,
+                    imageContent: {
+                        imageUrl: imgUrl
+                    }
+                }, { headers });
+
+                console.log(`🖼️ 기기 이미지 발송 성공: ${task.name} (${imgUrl})`);
+            } catch (equipImgError) {
+                console.error(
+                    "🖼️ 기기 이미지 발송 실패:",
+                    equipImgError.response?.data || equipImgError.message
+                );
+            }
+        }
+    }
+    // =========================================================
+
     return response.data.success;
 } catch (error) {
     console.error(

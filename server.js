@@ -146,7 +146,7 @@ app.post('/api/reservations/upload', async (req, res) => {
                 // 💡 [신규 등록] 기존 명단이 아예 없거나, '삭제' 버튼으로 완전히 지운 경우에만 실행
                 console.log(`[🔴 신규 등록] ${user.name} 고객님의 기존 명단이 없어 새로 등록합니다.`);
                 
-                const matchedUser = await TalkUser.findOne({ phone: safePhone });
+                // const matchedUser = await TalkUser.findOne({ phone: safePhone });
                 const newLog = new Reservation({
                     name: user.name, 
                     phone: safePhone, 
@@ -155,8 +155,10 @@ app.post('/api/reservations/upload', async (req, res) => {
                     pw: user.pw, 
                     accessories: user.accessories || [], 
                     equipment: user.equipment || '', 
-                    talkId: matchedUser ? matchedUser.talkId : '', 
-                    status: matchedUser ? 'SCHEDULED' : 'READY'   
+                    // talkId: matchedUser ? matchedUser.talkId : '', 
+                    // status: matchedUser ? 'SCHEDULED' : 'READY'
+                    talkId: '', 
+                    status: 'READY'   
                 });
                 await newLog.save();
             }
@@ -207,7 +209,7 @@ app.post('/api/scheduler/register', async (req, res) => {
         if (order.status === 'READY') order.status = 'SCHEDULED';
         await order.save();
 
-        await WebhookCapture.deleteOne({ talkId });
+        // await WebhookCapture.deleteOne({ talkId }); // 수동 매칭 이후에도 수신함 캡쳐 데이터가 사라지지 않도록 변경
         res.send({ success: true, data: order });
     } catch (error) { res.status(500).send({ success: false }); }
 });
@@ -457,27 +459,48 @@ app.post('/webhook', async (req, res) => {
             console.error("자동답변 발송 실패:", err);
         }
 
-    } else {
+    } 
+    
+    // else {
 
-        // ==========================================
-        // 웹훅 캡처 유지
-        // ==========================================
-        try {
-            await WebhookCapture.findOneAndUpdate(
-                { talkId: talkId },
-                {
-                    talkId: talkId,
-                    lastMessage: text,
-                    receivedAt: Date.now()
-                },
-                {
-                    returnDocument: 'after',
-                    upsert: true
-                }
-            );
-        } catch (err) {
-            console.error("DB 수집 실패:", err);
-        }
+    //     // ==========================================
+    //     // 웹훅 캡처 유지
+    //     // ==========================================
+    //     try {
+    //         await WebhookCapture.findOneAndUpdate(
+    //             { talkId: talkId },
+    //             {
+    //                 talkId: talkId,
+    //                 lastMessage: text,
+    //                 receivedAt: Date.now()
+    //             },
+    //             {
+    //                 returnDocument: 'after',
+    //                 upsert: true
+    //             }
+    //         );
+    //     } catch (err) {
+    //         console.error("DB 수집 실패:", err);
+    //     }
+    // }
+    // ==========================================
+    // 웹훅 캡처 유지 (자동답변 발생 유무와 상관없이 무조건 캡처)
+    // ==========================================
+    try {
+        await WebhookCapture.findOneAndUpdate(
+            { talkId: talkId },
+            {
+                talkId: talkId,
+                lastMessage: text,
+                receivedAt: Date.now()
+            },
+            {
+                returnDocument: 'after',
+                upsert: true
+            }
+        );
+    } catch (err) {
+        console.error("DB 수집 실패:", err);
     }
 
     return;

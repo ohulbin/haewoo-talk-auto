@@ -526,7 +526,8 @@ async function sendTalkMessage(task) {
     // =========================================================
     // 💡 [수정] 다중 기기 주문 시 모든 기기의 이미지 URL을 담는 로직
     // =========================================================
-    const equipmentStr = task.equipment || '';
+    // 💡 [추가 방어] 묶음 발송 시 task.formattedLockers 안에 기기명이 들어가므로 두 곳 모두 검사하도록 수정
+    const equipmentStr = task.equipment || task.formattedLockers || '';
     const equipmentImageUrls = []; // 여러 장을 담기 위해 배열([ ])로 변경
 
     // 나머지는 서로 간섭하지 않도록 전부 독립된 'if'문으로 분리합니다.
@@ -544,11 +545,17 @@ async function sendTalkMessage(task) {
 
     const config = await Config.findOne();
 
-const accessoryPw =
-    config?.accessoryLockerPw || '확인필요';
+    const accessoryPw =
+        config?.accessoryLockerPw || '확인필요';
 
-    // 10000번 이상 여부를 체크하는 변수를 하나 만들고 적용합니다.
-    const displayLocker = Number(task.lockerId) >= 10000 ? '[외부 보관]' : `[${task.lockerId}번] 보관함 (비밀번호 : [${task.pw}])`;
+    // 💡 [수정] 스케줄러에서 만든 다중 보관함 텍스트가 있으면 그대로 출력하고, 없다면 단건 포맷으로 방어합니다.
+    let displayLockerList = "";
+    if (task.formattedLockers) {
+        displayLockerList = task.formattedLockers;
+    } else {
+        const isExternal = Number(task.lockerId) >= 10000;
+        displayLockerList = isExternal ? '[외부 보관]' : `[${task.lockerId}번] 보관함 (비밀번호 : [${task.pw}])`;
+    }
     
     const messageText = `[합정점 무인 수령 및 반납 안내]
 
@@ -565,7 +572,8 @@ const accessoryPw =
 ** 예약 시간 내에만 수령·반납 가능합니다 **
 
 📦 3. 보관함 수령 및 반납
-보관함 정보 : ${displayLocker}
+${displayLockerList}
+
 🚨 절대 다이얼 비밀번호를 변경하지 말아주세요.
 
 반납 방법 : 수령 시와 동일한 비밀번호로 문을 열고 반납해 주세요.
@@ -719,15 +727,22 @@ app.listen(process.env.PORT || 5000, () => console.log(`🚀 서버 구동 중`)
 // ==========================================
 const cron = require('node-cron');
 
+// 💡 [커스텀 구역] 기기명 단축 사전
+// 좌측엔 명단에 적힌 '원래 이름'을, 우측엔 모바일로 나갈 '짧은 이름'을 적어주세요.
+// 여기에 없는 기기명은 명단에 적힌 원래 이름 그대로 발송됩니다.
+const customDictionary = {
+    "소니 ICD-TX660 초소형 고성능 휴대용 장시간 녹음기": "TX660",
+    "소니 FE 24-70mm F2.8 GM II (금계륵2)": "24-70 GM2",
+    "블랙매직디자인 포켓 시네마 카메라 6K Pro": "BMPCC 6K Pro",
+    "캐논 EOS R5 바디": "R5"
+};
+
 // 💡 1분마다 실행
 cron.schedule('* * * * *', async () => {
     try {
         const now = new Date();
-        // 타겟 시간: 지금으로부터 정확히 30분 뒤
         const targetTime = new Date(now.getTime() + 30 * 60 * 1000); 
 
-        // 🚨 [핵심 수정] 예약 시간이 '지금 ~ 30분 뒤' 사이로 임박했는데, 상태가 SCHEDULED인 건을 싹 다 찾음!
-        // (즉, 30분 전에 딱 맞춰 올리지 않고 13분 전에 지각 업로드/매칭을 해도 즉시 발견해 냄)
         const ordersToProcess = await Reservation.find({
             status: 'SCHEDULED',
             reservationTime: { $lte: targetTime, $gte: now } 
@@ -737,19 +752,57 @@ cron.schedule('* * * * *', async () => {
             console.log(`[스케줄러] ${ordersToProcess.length}건의 발송 대상을 발견했습니다.`);
         }
 
+        // [신규 로직] 동일한 톡톡ID(고객)끼리 주문을 배열로 묶어줍니다.
+        const groupedOrders = {};
         for (let order of ordersToProcess) {
-            console.log(`[발송 시도] ${order.name} 고객님 - 보관함 ${order.lockerId}`);
+            if (!groupedOrders[order.talkId]) {
+                groupedOrders[order.talkId] = [];
+            }
+            groupedOrders[order.talkId].push(order);
+        }
+
+        // 묶인 그룹별로 1번씩만 반복문을 돌며 발송합니다.
+        for (let talkId in groupedOrders) {
+            const userOrders = groupedOrders[talkId];
+            const firstOrder = userOrders[0];
+
+            // [핵심] 커스텀 사전을 적용하여 기기명과 보관함 텍스트를 생성합니다.
+                const formattedLockers = userOrders.map(o => {
+                const isExternal = Number(o.lockerId) >= 10000;
+                const lockerStr = isExternal ? '[외부 보관]' : `[${o.lockerId}번] 보관함 (비밀번호 : [${o.pw}])`;
+                
+                if (userOrders.length === 1) {
+                    // 1️⃣ 단일 주문일 경우: 기기명 없이 깔끔하게 보관함 정보만 반환
+                    return lockerStr;
+                } else {
+                    // 2️⃣ 다중 주문일 경우: 구분을 위해 기기명을 앞에 추가
+                    const rawEquip = o.equipment || '';
+                    const shortEquip = customDictionary[rawEquip] || rawEquip || '기본 장비';
+                    return `* ${shortEquip} : ${lockerStr}`;
+                }
+            }).join('\n');
+
+            const mergedAccessories = [...new Set(userOrders.flatMap(o => o.accessories))];
+
+            // 네이버 발송 함수로 넘겨줄 가상의 단일 작업(Task) 객체 생성
+            const mergedTask = {
+                talkId: talkId,
+                name: firstOrder.name,
+                formattedLockers: formattedLockers, 
+                accessories: mergedAccessories,
+                orderIds: userOrders.map(o => o._id) 
+            };
             
-            // 하단에 만들어두신 네이버 톡톡 발송 함수 호출
-            const success = await sendTalkMessage(order); 
+            const success = await sendTalkMessage(mergedTask); 
             
             if (success) {
-                // 발송 성공 시 상태를 SENT로 변경하여 중복 발송 영구 차단
-                order.status = 'SENT';
-                await order.save();
-                console.log(`✅ [발송 성공] ${order.name} - 보관함 ${order.lockerId}`);
+                await Reservation.updateMany(
+                    { _id: { $in: mergedTask.orderIds } },
+                    { $set: { status: 'SENT' } }
+                );
+                console.log(`✅ [발송 성공 - 묶음] ${mergedTask.name} 고객님`);
             } else {
-                console.error(`❌ [발송 실패] ${order.name}`);
+                console.error(`❌ [발송 실패 - 묶음] ${mergedTask.name} 고객님`);
             }
         }
     } catch (error) {

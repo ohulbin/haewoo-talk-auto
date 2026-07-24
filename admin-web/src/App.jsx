@@ -190,7 +190,9 @@ function App() {
       
       try {
         const data = JSON.parse(event.target.result);
-        const uniqueCombinedSet = new Set();
+        
+        // 💡 [핵심 변경 1] Set 대신 Map(객체)을 사용하여 중복 보관함 데이터를 버리지 않고 합칩니다.
+        const extractedMap = {}; 
         accessoryLockerPw = data.lockers?.["3"]?.[0]?.pw || "";
 
         for (const lockerKey in data.lockers) {
@@ -198,37 +200,52 @@ function App() {
           if (!Array.isArray(items)) continue;
 
           items.forEach(item => {
+            // 💡 [방어 유지] 반드시 'reserved' 상태인 항목만 필터링하여 처리합니다.
             if (item.status === 'reserved' && item.contact) {
               if (!item.startDate || !item.startTime || item.startTime.trim() === "") return;
 
               const combinedKey = `${item.contact}_${lockerKey}`;
 
-              if (!uniqueCombinedSet.has(combinedKey)) {
-                // 현재 화면(reservedList)에 이미 'SENT' 상태로 존재하는 예약이라면?
-                // 서버로 보낼 업로드 배열에 아예 포함시키지 않고 스킵합니다!
-                const isAlreadySent = reservedList.some(
-                  r => r.phone === item.contact && r.lockerId === lockerKey && r.status === 'SENT'
-                );
-                
-                if (isAlreadySent) {
-                  return; // forEach문 안에서 return은 continue와 같음 (추출 스킵)
-                }
+              // 현재 화면(reservedList)에 이미 'SENT' 상태로 존재하는 예약이라면 스킵
+              const isAlreadySent = reservedList.some(
+                r => r.phone === item.contact && r.lockerId === lockerKey && r.status === 'SENT'
+              );
+              
+              if (isAlreadySent) {
+                return; // forEach문 안에서 return은 continue와 같음 (추출 스킵)
+              }
 
-                uniqueCombinedSet.add(combinedKey);
+              // 💡 [핵심 변경 2] 보관함 데이터 누적(병합) 로직
+              if (!extractedMap[combinedKey]) {
+                // 해당 보관함 번호로 처음 들어가는 물건일 경우 (새로 생성)
                 const dt = `${item.startDate}T${item.startTime}:00+09:00`;
-                extracted.push({
+                extractedMap[combinedKey] = {
                   name: item.name,
                   phone: item.contact,
                   reservationTime: dt,
                   lockerId: lockerKey, 
                   pw: item.pw,
-                  accessories: item.accessories || [],
+                  accessories: item.accessories ? [...item.accessories] : [], // 배열 복사
                   equipment: item.item || "" 
-                });
+                };
+              } else {
+                // 이미 해당 보관함이 생성되어 있다면, 물건과 악세사리를 버리지 않고 누적
+                if (item.accessories) {
+                  // 중복되는 악세사리(예: 대여기간 2일)는 Set을 통해 1개로 합칩니다.
+                  extractedMap[combinedKey].accessories = [...new Set([...extractedMap[combinedKey].accessories, ...item.accessories])];
+                }
+                if (item.item) {
+                  // 백엔드에서 쉽게 쪼개어 번역할 수 있도록 구분자( | )를 넣어 기기명을 합칩니다.
+                  extractedMap[combinedKey].equipment += ` | ${item.item}`;
+                }
               }
             }
           });
         }
+        
+        // 💡 딕셔너리(객체) 형태로 모아진 데이터를 기존과 동일한 배열(Array) 형태로 변환
+        extracted = Object.values(extractedMap);
+
       } catch (err) { return alert('파일 해석 실패. 올바른 JSON 파일인지 확인해주세요.'); }
 
       if (extracted.length === 0) return alert('불러올 예약 데이터가 없습니다. (시간 누락 데이터 점검 요망)');

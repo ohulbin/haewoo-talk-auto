@@ -731,10 +731,121 @@ const cron = require('node-cron');
 // 좌측엔 명단에 적힌 '원래 이름'을, 우측엔 모바일로 나갈 '짧은 이름'을 적어주세요.
 // 여기에 없는 기기명은 명단에 적힌 원래 이름 그대로 발송됩니다.
 const customDictionary = {
-    "소니 ICD-TX660 초소형 고성능 휴대용 장시간 녹음기": "TX660",
-    "소니 FE 24-70mm F2.8 GM II (금계륵2)": "24-70 GM2",
-    "블랙매직디자인 포켓 시네마 카메라 6K Pro": "BMPCC 6K Pro",
-    "캐논 EOS R5 바디": "R5"
+    // ==========================================
+    // 스마트폰
+    // ==========================================
+    "갤럭시 S22 울트라 256GB 단기 12시간 24시간": "S22U",
+    "갤럭시 S23 울트라 512GB 단기 12시간 24시간": "S23U",
+    "갤럭시 S24 울트라 512GB 단기 12시간 24시간": "S24U",
+    "갤럭시 S25 울트라 512GB 단기 12시간 24시간": "S25U",
+    "갤럭시 S26 울트라 512GB 단기 12시간 24시간": "S26U",
+    "아이폰 17 프로 256GB 12시간 24시간": "아이폰17 pro",
+    // ==========================================
+    // 캐논 미러리스 크롭 (바디 & 렌즈)
+    // ==========================================
+    "캐논 EOS R7 미러리스 카메라": "R7",
+    "캐논 EOS R50V 14-30mm KIT 카메라": "R50V + 14-30mm",
+    "캐논 EOS M50 Mark II + 15-45mm 번들렌즈": "M50 mark2 + 15-45mm",
+    "캐논 EOS M200 + 15-45mm 번들렌즈 KIT": "M200 + 15-45mm",
+    "캐논 EOS R50 18-45mm KIT 카메라": "R50 + 18-45mm",
+    "캐논 EOS M50 + 15-45mm 번들렌즈 KIT": "M50 + 15-45mm",
+    "캐논 EOS R10 미러리스 카메라": "R10",
+    "캐논 EOS M100 15-45mm KIT 카메라": "M100 + 15-45mm",
+    "캐논 RF-S 55-210mm F5-7.1 IS STM": "RF-S 55-210mm",
+    "캐논 EF-M 11-22mm F4-5.6 IS STM": "EF-M 11-22mm",
+    "캐논 EF-M 32mm F1.4 STM 렌즈": "EF-M 32mm",
+    "캐논 EF-M 18-150mm F3.5-6.3 IS STM": "EF-M 18-150mm",
+    "캐논 RF-S 10-18mm F4.5-6.3 IS STM": "RF-S 10-18mm",
+    "캐논 RF-S 18-150mm F3.5-6.3 IS STM": "RF-S 18-150mm",
+    "캐논 EF-M 55-200mm F4.5-6.3 IS STM": "EF-M 55-200mm",
+    "캐논 EF-M 22mm F2 STM 렌즈": "EF-M 22mm",
+    // ==========================================
+    // 캐논 미러리스 풀프레임 (바디 & 렌즈)
+    // ==========================================
+    "캐논 EOS R6 Mark III R6M3 알육막삼": "R6M3",
+    "캐논 EOS R6 V 미러리스 카메라": "R6V",
+    "캐논 EOS R5 미러리스 카메라": "R5",
+    "캐논 EOS R6 Mark II R6M2 알육막투": "R6M2",
+    "캐논 EOS R6 미러리스 카메라": "R6",
+    "캐논 EOS R8 미러리스 카메라": "R8",
+    "캐논 EOS R 미러리스 카메라": "R",
+    "캐논 EOS RP 미러리스 카메라": "RP",
+    "캐논 RF 70200 F2.8 L IS USM 알아빠": "RF 70-200mm",
+    "RF100-500mm F4.5-7.1L IS 백오백 팬미팅 콘서트": "RF 100-500mm",
+    "RF 200-800mm F6.3-9 IS USM 초망원 줌렌즈": "RF 200-800mm",
+    "캐논 RF 50mm F1.2 L USM 알오이 렌즈": "RF 50mm",
+    "캐논 RF 85mm F1.2 L USM 알만두 렌즈": "RF 85mm",
+    "캐논 RF 24-70mm F2.8 L IS 알계륵 렌즈": "RF 24-70mm",
+    "캐논 RF 70 200mm F4 L IS USM 알형아": "RF 70-200mm",
+    "캐논 RF 100mm F2.8 L MACRO IS 알백마": "RF 100mm",
+    "캐논 RF 28-70mm F2.8 IS STM 렌즈": "RF 28-70mm",
+    "캐논 RF 50mm F1.4 L VCM 표준 단렌즈": "RF 50mm F1.4",
+    "캐논 RF 20-50mm F4 L IS USM PZ 표준 렌즈": "RF 20-50mm",
+    "캐논 RF 24-105mm F4L IS USM 렌즈": "RF 24-105mm",
+    "캐논 RF 24-240mm F4-6.3 IS USM 렌즈": "RF 24-240mm",
+    "캐논 RF 100-400mm F5.6-8 IS USM 알백사": "RF 100-400mm",
+    "캐논 RF 24mm F1.8 MACRO IS STM 렌즈": "RF 24mm",
+    "캐논 RF 24-105mm F4-7.1 IS STM 렌즈": "RF 24-105mm STM",
+    "캐논 RF 85mm F2 Macro IS STM 렌즈": "RF 85mm F2 Macro",
+    "캐논 RF 35mm F1.8 MACRO IS STM 렌즈": "RF 35mm F1.8 Macro",
+    "캐논 RF 28mm F2.8 STM 렌즈": "RF 28mm F2.8",
+    "캐논 RF 24-50mm F4.5-6.3 IS STM": "RF 24-50mm",
+    "캐논 RF 50mm F1.8 STM 렌즈": "RF 50mm F1.8",
+
+    // ==========================================
+    // 소니 미러리스 크롭
+    // ==========================================
+    "소니 ILME-FX30B FX30 슈퍼 35 시네마 카메라": "FX30",
+    "소니 A6700 + 16-50mm 번들렌즈 KIT": "A6700 + 16-50mm",
+    "소니 ZV-E10 II 미러리스 카메라 브이로그 유튜브": "ZV-E10 II",
+    "소니 A6400+16-50mm 번들렌즈 KIT 24시간": "A6400 + 16-50mm",
+    "소니 A6500 + 16-50mm 번들렌즈 KIT": "A6500 + 16-50mm",
+    "소니 A6100 + 16-50mm 번들렌즈 KIT": "A6100 + 16-50mm",
+    "소니 ZV-E10 미러리스 카메라 브이로그 유튜브": "ZV-E10",
+    "소니 A6000 + 16-50mm 번들렌즈 KIT": "A6000 + 16-50mm",
+    // ==========================================
+    // 소니 미러리스 풀프레임
+    // ==========================================
+    "소니 ILME-FX3A FX3 풀프레임 시네마 캠코더": "FX3",
+    "소니 ILME-FX2 FX2 풀프레임 시네마 캠코더": "FX2",
+    "소니 ILCE-7M5 A7M5 A7V 미러리스 카메라": "A7V",
+    "소니 ILCE-7CR A7CR 카메라 바디": "A7CR",
+    "소니 ILCE-7SM3 A7S3 미러리스 카메라 바디": "A7S3",
+    "소니 ILCE-7RM4A A7R IV A7R4 바디": "A7R4",
+    "소니 ILCE-7CM2 A7C2 A7C II 카메라": "A7C2",
+    "소니 ILCE-7M4 A7M4 미러리스 카메라": "A7M4",
+    "소니 ILCE-7RM3 A7R3 A7R lll 바디": "A7R3",
+    "소니 ILCE-7M3 A7M3 A7M III 바디": "A7M3",
+    "소니 ILCE-7C A7C 카메라 바디": "A7C",
+    // ==========================================
+    // 후지 미러리스
+    // ==========================================
+    "후지필름 X-E5 + XF23mm 번들렌즈 KIT": "X-E5 + XF23mm",
+    "후지필름 X-T5 카메라 바디": "X-T5",
+    "후지필름 X-H2 카메라 바디": "X-H2",
+    "후지필름 X-E5 카메라 바디": "X-E5",
+    "후지필름 X-T30 III + XF 13-33mm 번들렌즈 KIT": "X-T30 III + XF 13-33mm",
+    "후지필름 X-M5 + XF 15-45mm 번들렌즈 KIT": "X-M5 + XF 15-45mm",
+    "후지필름 X-S20 카메라 바디": "X-S20",
+    "후지필름 X-T30 II + XF 18-55mm 번들렌즈 KIT": "X-T30 II + XF 18-55mm",
+    "후지필름 X-T50 카메라 바디": "X-T50",
+    "후지필름 X-T4 카메라 바디": "X-T4",
+    // ==========================================
+    // 캐논 DSLR 크롭
+    // ==========================================
+    "캐논 EOS 850D + 18-55mm 번들렌즈 KIT": "850D + 18-55mm",
+    "캐논 EOS 90D DSLR 고화질 카메라": "90D",
+    "캐논 EOS 200D II + 18-55mm 번들렌즈 KIT": "200D II + 18-55mm",
+    "캐논 EOS 200D + 18-55mm 번들렌즈 KIT": "200D + 18-55mm",
+    "캐논 EOS 800D + 18-55mm 번들렌즈 KIT": "800D + 18-55mm",
+    "캐논 EOS 750D + 18-55mm 번들렌즈 KIT": "750D + 18-55mm",
+    // ==========================================
+    // 캐논 DSLR 풀프레임
+    // ==========================================
+    "캐논 EOS 5D Mark IV 오막포 4K 고화질 DSLR": "5D Mark IV",
+    "캐논 EOS 6D Mark II Mark2 육두막 바디": "6D Mark II",
+    "캐논 EOS 5D Mark III Mark3 오막삼": "5D Mark III",
+    "캐논 EOS 6D 카메라 바디": "6D",
 };
 
 // 💡 1분마다 실행
@@ -752,7 +863,7 @@ cron.schedule('* * * * *', async () => {
             console.log(`[스케줄러] ${ordersToProcess.length}건의 발송 대상을 발견했습니다.`);
         }
 
-        // [신규 로직] 동일한 톡톡ID(고객)끼리 주문을 배열로 묶어줍니다.
+// [신규 로직] 동일한 톡톡ID(고객)끼리 주문을 배열로 묶어줍니다.
         const groupedOrders = {};
         for (let order of ordersToProcess) {
             if (!groupedOrders[order.talkId]) {
@@ -767,17 +878,25 @@ cron.schedule('* * * * *', async () => {
             const firstOrder = userOrders[0];
 
             // [핵심] 커스텀 사전을 적용하여 기기명과 보관함 텍스트를 생성합니다.
-                const formattedLockers = userOrders.map(o => {
+            const formattedLockers = userOrders.map(o => {
                 const isExternal = Number(o.lockerId) >= 10000;
                 const lockerStr = isExternal ? '[외부 보관]' : `[${o.lockerId}번] 보관함 (비밀번호 : [${o.pw}])`;
                 
                 if (userOrders.length === 1) {
-                    // 1️⃣ 단일 주문일 경우: 기기명 없이 깔끔하게 보관함 정보만 반환
+                    // 1️⃣ 단일 보관함 주문일 경우: 기기명 없이 깔끔하게 보관함 정보만 반환
                     return lockerStr;
                 } else {
-                    // 2️⃣ 다중 주문일 경우: 구분을 위해 기기명을 앞에 추가
+                    // 2️⃣ 다중 보관함 주문일 경우: 구분을 위해 기기명을 앞에 추가
                     const rawEquip = o.equipment || '';
-                    const shortEquip = customDictionary[rawEquip] || rawEquip || '기본 장비';
+                    
+                    // 💡 [방어 완벽 적용] 프론트엔드에서 합쳐서 보낸 "A | B" 형태를 쪼개서 
+                    // 각각 사전에 검색하여 번역한 뒤, 다시 쉼표(,)로 예쁘게 이어붙입니다.
+                    const shortEquip = rawEquip.split('|').map(item => {
+                        const trimmed = item.trim();
+                        // 사전에 있으면 짧은 이름 반환, 없으면 원본 이름 유지
+                        return customDictionary[trimmed] || trimmed; 
+                    }).filter(Boolean).join(', ') || '기본 장비';
+
                     return `* ${shortEquip} : ${lockerStr}`;
                 }
             }).join('\n');
@@ -796,6 +915,7 @@ cron.schedule('* * * * *', async () => {
             const success = await sendTalkMessage(mergedTask); 
             
             if (success) {
+                // 발송 성공 시 해당 묶음에 있던 모든 명단을 한 번에 SENT 처리
                 await Reservation.updateMany(
                     { _id: { $in: mergedTask.orderIds } },
                     { $set: { status: 'SENT' } }

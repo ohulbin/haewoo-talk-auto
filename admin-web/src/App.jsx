@@ -250,6 +250,9 @@ function App() {
 
       if (extracted.length === 0) return alert('불러올 예약 데이터가 없습니다. (시간 누락 데이터 점검 요망)');
 
+      // 💡 [확인용 로그 추가] 서버로 보내기 직전에 데이터가 잘 합쳐졌는지 브라우저 콘솔에서 확인!
+      console.log("🚀 서버로 보낼 병합된 최종 데이터:", extracted);
+
       try {
         const res = await fetch(`${BACKEND_URL}/api/reservations/upload`, {
           method: 'POST',

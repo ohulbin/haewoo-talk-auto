@@ -877,23 +877,17 @@ cron.schedule('* * * * *', async () => {
             const userOrders = groupedOrders[talkId];
             const firstOrder = userOrders[0];
 
-            // [핵심] 커스텀 사전을 적용하여 기기명과 보관함 텍스트를 생성합니다.
+            // 1. 보관함 텍스트 생성 로직
             const formattedLockers = userOrders.map(o => {
                 const isExternal = Number(o.lockerId) >= 10000;
                 const lockerStr = isExternal ? '[외부 보관]' : `[${o.lockerId}번] 보관함 (비밀번호 : [${o.pw}])`;
                 
                 if (userOrders.length === 1) {
-                    // 1️⃣ 단일 보관함 주문일 경우: 기기명 없이 깔끔하게 보관함 정보만 반환
                     return lockerStr;
                 } else {
-                    // 2️⃣ 다중 보관함 주문일 경우: 구분을 위해 기기명을 앞에 추가
                     const rawEquip = o.equipment || '';
-                    
-                    // 💡 [방어 완벽 적용] 프론트엔드에서 합쳐서 보낸 "A | B" 형태를 쪼개서 
-                    // 각각 사전에 검색하여 번역한 뒤, 다시 쉼표(,)로 예쁘게 이어붙입니다.
                     const shortEquip = rawEquip.split('|').map(item => {
                         const trimmed = item.trim();
-                        // 사전에 있으면 짧은 이름 반환, 없으면 원본 이름 유지
                         return customDictionary[trimmed] || trimmed; 
                     }).filter(Boolean).join(', ') || '기본 장비';
 
@@ -901,22 +895,26 @@ cron.schedule('* * * * *', async () => {
                 }
             }).join('\n');
 
+            // 🚨 [복구 및 강화 완료] 악세사리가 아예 비어있을 때도 에러가 나지 않도록(|| []) 완벽하게 방어했습니다.
+            const mergedAccessories = [...new Set(userOrders.flatMap(o => o.accessories || []))];
+            
+            // 💡 [추가했던 로직] 겉으로는 안 보이지만, 이미지 트리거용으로 원본 기기명을 백업합니다.
             const mergedEquipment = userOrders.map(o => o.equipment || '').join(' | ');
 
-            // 네이버 발송 함수로 넘겨줄 가상의 단일 작업(Task) 객체 생성
+            // 2. 발송할 데이터 조립
             const mergedTask = {
                 talkId: talkId,
                 name: firstOrder.name,
-                formattedLockers: formattedLockers,
-                equipment: mergedEquipment,
-                accessories: mergedAccessories,
+                formattedLockers: formattedLockers, 
+                equipment: mergedEquipment, 
+                accessories: mergedAccessories, // 💡 이제 여기서 에러가 나지 않습니다!
                 orderIds: userOrders.map(o => o._id) 
             };
             
+            // 3. 네이버 톡톡 발송 실행
             const success = await sendTalkMessage(mergedTask); 
             
             if (success) {
-                // 발송 성공 시 해당 묶음에 있던 모든 명단을 한 번에 SENT 처리
                 await Reservation.updateMany(
                     { _id: { $in: mergedTask.orderIds } },
                     { $set: { status: 'SENT' } }

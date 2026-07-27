@@ -901,13 +901,14 @@ cron.schedule('* * * * *', async () => {
                 }
             }).join('\n');
 
-            const mergedAccessories = [...new Set(userOrders.flatMap(o => o.accessories))];
+            const mergedEquipment = userOrders.map(o => o.equipment || '').join(' | ');
 
             // 네이버 발송 함수로 넘겨줄 가상의 단일 작업(Task) 객체 생성
             const mergedTask = {
                 talkId: talkId,
                 name: firstOrder.name,
-                formattedLockers: formattedLockers, 
+                formattedLockers: formattedLockers,
+                equipment: mergedEquipment,
                 accessories: mergedAccessories,
                 orderIds: userOrders.map(o => o._id) 
             };

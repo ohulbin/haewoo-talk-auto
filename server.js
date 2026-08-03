@@ -649,7 +649,8 @@ try {
     // 삼각대 발송
 if (response.data && response.data.success && hasTripodGuide) {
 
-    const tripodMessage = `삼각대는 외부에 보관되어 직접 1개 수령 후 반납 시 빈자리에 넣어주시고 인증사진 남겨주시면 됩니다.`;
+    const tripodMessage = `삼각대는 외부에 보관되어 직접 1개 수령 후 반납 시 빈자리에 넣어주시고 인증사진 남겨주시면 됩니다.
+    ⚠️수령/반납시 삼각대 플레이트 꼭 확인 부탁드립니다.`;
 
     await axios.post(url, {
         event: "send",

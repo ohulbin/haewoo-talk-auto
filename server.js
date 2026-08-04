@@ -521,7 +521,11 @@ async function sendTalkMessage(task) {
 
     // 악세사리 항목 추가 (보조배터리 / 리더기)
     const accessories = task.accessories || [];
-    const hasTripodGuide = accessories.some(a => a.includes('삼각대'));
+    const hasTripodGuide = accessories.some(a => 
+        a.includes('삼각대') && 
+        !a.includes('쇼티 삼각대') && 
+        !a.includes('미니 삼각대')
+        );
 
     // =========================================================
     // 💡 [수정] 다중 기기 주문 시 모든 기기의 이미지 URL을 담는 로직

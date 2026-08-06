@@ -1168,6 +1168,15 @@ cron.schedule('* * * * *', async () => {
                         return customDictionary[trimmed] || trimmed; 
                     }).filter(Boolean).join(', ') || '기본 장비';
 
+                    // 💡 [신규 로직] 포켓3 + 크리에이터 콤보 조건 확인 및 이름 변경
+                    // 악세사리에 '크리에이터 콤보'가 포함되어 있는지 확인합니다.
+                    const hasCreatorCombo = (o.accessories || []).some(a => typeof a === 'string' && a.includes('크리에이터 콤보'));
+                    
+                    // 기기명에 '포켓3'가 있고, 콤보 옵션도 있다면 텍스트를 변환합니다.
+                    if (shortEquip.includes('포켓3') && hasCreatorCombo) {
+                        shortEquip = shortEquip.replace('포켓3', '포켓3 크리에이터 콤보');
+                    }
+
                     return `* ${shortEquip} : ${lockerStr}`;
                 }
             }).join('\n');

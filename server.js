@@ -1163,7 +1163,7 @@ cron.schedule('* * * * *', async () => {
                     return lockerStr;
                 } else {
                     const rawEquip = o.equipment || '';
-                    const shortEquip = rawEquip.split('|').map(item => {
+                    let shortEquip = rawEquip.split('|').map(item => {
                         const trimmed = item.trim();
                         return customDictionary[trimmed] || trimmed; 
                     }).filter(Boolean).join(', ') || '기본 장비';

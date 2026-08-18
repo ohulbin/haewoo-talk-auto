@@ -51,7 +51,7 @@ const styles = {
   card: { backgroundColor: theme.surface, borderRadius: '24px', boxShadow: '0 4px 24px rgba(0, 0, 0, 0.04)', padding: '24px', overflow: 'hidden' },
   table: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }, 
   th: { padding: '16px 8px', borderBottom: `2px solid ${theme.border}`, color: theme.textMute, fontWeight: '600', fontSize: '14px', textAlign: 'center', whiteSpace: 'nowrap' },
-  td: { padding: '18px 8px', borderBottom: `1px solid ${theme.bg}`, fontSize: '14px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: theme.textSub },
+  td: { padding: '18px 8px', borderBottom: `1px solid ${theme.bg}`, fontSize: '14px', textAlign: 'center', whiteSpace: 'normal', wordBreak: 'keep-all', lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', color: theme.textSub },
   
   // 💡 [수정] 배지 색상을 꽉 찬 원색 배경 + 흰색 글씨로 변경하여 가독성 및 직관성 극대화
   badge: (status) => {

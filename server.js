@@ -540,7 +540,8 @@ async function sendTalkMessage(task) {
     if (equipmentStr.includes('파티박스 320')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/partybox320.jpg');
     if (equipmentStr.includes('CP1500')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/cp1500.jpg');
     //if (equipmentStr.includes('아마란')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/amaran300c.jpg');
-    //if (equipmentStr.includes('어벤저')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/avenger.jpg');
+    if (equipmentStr.includes('온더고')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/onthego.jpg');
+    if (equipmentStr.includes('어벤저')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/avenger.jpg');
     if (equipmentStr.includes('브리츠')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/britz.jpg');
     //if (equipmentStr.includes('프리스타일')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/freestyle.jpg');
     //if (equipmentStr.includes('E6')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/e6.jpg');

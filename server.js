@@ -456,7 +456,7 @@ app.post('/webhook', async (req, res) => {
     }
 
     // 💡 [신규 로직] 정해진 버튼이 아닌 일반 문의 텍스트가 들어왔고, 토글이 ON(부재중)일 때
-    else if (text !== "관리자테스트" && isOutOfOfficeMode) {
+    else if (text === "관리자테스트" && isOutOfOfficeMode) {
         replyText = "지금은 상담시간이 아닙니다. 남겨주신 문의는 영업시간 내에 순차적으로 확인 후 답변드리겠습니다.";
     }
 

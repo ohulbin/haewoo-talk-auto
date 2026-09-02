@@ -77,6 +77,20 @@ app.get('/api/reservations', async (req, res) => {
     } catch (error) { res.status(500).send({ success: false, error: error.message }); }
 });
 
+// ==========================================
+// 💡 상담 시간 ON/OFF 토글 상태 관리
+// ==========================================
+let isOutOfOfficeMode = false; // 기본값: 상담 중(false)
+
+app.get('/api/config/ooo', (req, res) => {
+    res.json({ isOutOfOfficeMode });
+});
+
+app.post('/api/config/ooo', (req, res) => {
+    isOutOfOfficeMode = req.body.isOutOfOfficeMode;
+    res.json({ success: true, isOutOfOfficeMode });
+});
+
 // 2. 명단 업로드 (상태값 절대 방어 및 서버 로그 추적 버전)
 app.post('/api/reservations/upload', async (req, res) => {
     try {
@@ -439,6 +453,11 @@ app.post('/webhook', async (req, res) => {
 3시간 무료 주차 가능
 (매장 내 QR코드 인식 후
 차량번호 뒤 4자리 입력)`;
+    }
+
+    // 💡 [신규 로직] 정해진 버튼이 아닌 일반 문의 텍스트가 들어왔고, 토글이 ON(부재중)일 때
+    else if (text !== "관리자테스트" && isOutOfOfficeMode) {
+        replyText = "지금은 상담시간이 아닙니다. 남겨주신 문의는 영업시간 내에 순차적으로 확인 후 답변드리겠습니다.";
     }
 
     if (replyText !== "") {

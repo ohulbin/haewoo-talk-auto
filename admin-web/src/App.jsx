@@ -132,6 +132,31 @@ function App() {
   const [autoLogin, setAutoLogin] = useState(false);
 
   const [reservedList, setReservedList] = useState([]);
+  const [isOOO, setIsOOO] = useState(false);
+
+  // 화면 렌더링 시 현재 서버의 토글 상태 불러오기
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/api/config/ooo`)
+      .then(res => res.json())
+      .then(data => setIsOOO(data.isOutOfOfficeMode))
+      .catch(err => console.error("토글 상태 불러오기 실패:", err));
+  }, []);
+
+  // 토글 버튼 클릭 함수
+  const handleToggleOOO = async () => {
+    const newState = !isOOO;
+    setIsOOO(newState); // 화면 즉시 반영
+    try {
+      await fetch(`${BACKEND_URL}/api/config/ooo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isOutOfOfficeMode: newState })
+      });
+    } catch (error) {
+      alert('상태 변경에 실패했습니다.');
+      setIsOOO(!newState); // 실패 시 롤백
+    }
+  };
   const [activePopupUser, setActivePopupUser] = useState(null);
   const [webhookList, setWebhookList] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -493,7 +518,54 @@ function App() {
       `}</style>
 
       <header style={styles.headerContainer}>
-        <h1 style={styles.title}>Haewoo Auto Schedule <span style={{fontSize: '20px', color: theme.textMute, fontWeight: '600'}}>(합정점)</span></h1>
+        {/* 타이틀 및 자동응답 토글 영역 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px' }}>
+        
+        {/* 기존 타이틀 유지 */}
+        <h1 style={styles.title}>
+          Haewoo Auto Schedule <span style={{fontSize: '20px', color: theme.textMute, fontWeight: '600'}}>(합정점)</span>
+        </h1>
+        
+        {/* 슬라이더 토글 버튼 */}
+        <div 
+          onClick={handleToggleOOO}
+          style={{
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px', 
+            cursor: 'pointer'
+          }}
+        >
+          <div style={{
+            width: '54px',
+            height: '28px',
+            backgroundColor: isOOO ? '#ff4d4f' : '#dcdcdc',
+            borderRadius: '28px',
+            position: 'relative',
+            transition: 'background-color 0.3s ease'
+          }}>
+            <div style={{
+              width: '22px',
+              height: '22px',
+              backgroundColor: '#fff',
+              borderRadius: '50%',
+              position: 'absolute',
+              top: '3px',
+              left: isOOO ? '29px' : '3px',
+              transition: 'left 0.3s ease',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }} />
+          </div>
+          <span style={{ 
+            fontSize: '15px', 
+            fontWeight: 'bold', 
+            color: isOOO ? '#ff4d4f' : theme.textMute 
+          }}>
+            부재중 멘트 {isOOO ? 'ON' : 'OFF'}
+          </span>
+        </div>
+
+      </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <label 

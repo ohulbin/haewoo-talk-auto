@@ -482,6 +482,7 @@ function App() {
         .animated-modal { animation: modalFade 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .hover-row { transition: background-color 0.2s ease; }
         .hover-row:hover { background-color: #F9FAFB; }
+        .hover-row.selected-row { background-color: #f0f7ff; }
         .hover-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.06) !important; }
         .btn-action:hover { filter: brightness(0.95); transform: scale(0.98); }
         .input-focus:focus { box-shadow: 0 0 0 2px #3182F6 inset; }
@@ -633,7 +634,7 @@ function App() {
             return (
               <tr 
                 key={u._id} 
-                className="hover-row"
+                className={`hover-row ${selectedIds.includes(u._id) ? 'selected-row' : ''}`}
                 // 💡 다시 추가됨: 행(라인) 전체를 클릭해도 체크박스가 토글됩니다.
                 onClick={() => handleToggleSelect(u._id)} 
                 style={{ cursor: 'pointer' }}

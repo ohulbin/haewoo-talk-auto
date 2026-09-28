@@ -419,6 +419,11 @@ function App() {
     }
   };
 
+  // ⭐ 선택된 항목 전체 해제
+  const handleClearSelection = () => {
+    setSelectedIds([]);
+  };
+
   const safeReservedList = Array.isArray(reservedList) ? reservedList : [];
 
   // ⭐ [추가됨] 예약시간 기준 오름차순 정렬 (시간이 동일하면 이름순 정렬)
@@ -767,6 +772,18 @@ function App() {
           className="btn-action"
         >
           일괄 삭제
+        </button>
+                <button 
+          onClick={handleClearSelection}
+          style={{
+            backgroundColor: theme.primary, color: '#FFFFFF', border: 'none', 
+            padding: '12px 24px', borderRadius: '24px', fontWeight: '700', 
+            fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(68, 94, 240, 0.3)',
+            transition: 'all 0.2s ease', letterSpacing: '-0.3px'
+          }}
+          className="btn-action"
+        >
+          선택 해제
         </button>
       </div>
 

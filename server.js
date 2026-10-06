@@ -546,6 +546,7 @@ async function sendTalkMessage(task) {
         !a.includes('쇼티 삼각대') && 
         !a.includes('미니 삼각대') &&
         !a.includes('카본삼각대') &&
+        !a.includes('파티박스 전용 삼각대') &&
         !a.includes('비프리 라이브')
         );
 

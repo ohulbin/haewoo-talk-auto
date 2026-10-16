@@ -555,20 +555,29 @@ async function sendTalkMessage(task) {
     // =========================================================
     // 💡 [추가 방어] 묶음 발송 시 task.formattedLockers 안에 기기명이 들어가므로 두 곳 모두 검사하도록 수정
     const equipmentStr = task.equipment || task.formattedLockers || '';
-    const equipmentImageUrls = []; // 여러 장을 담기 위해 배열([ ])로 변경
+    const equipmentImageUrls = [];
 
-    // 나머지는 서로 간섭하지 않도록 전부 독립된 'if'문으로 분리합니다.
+    // 파티박스 전용 삼각대 이미지
+    if (equipmentStr.includes('파티박스 전용 삼각대')) {
+        equipmentImageUrls.push(
+            'https://haewoo-talk-auto.onrender.com/images/only320.jpg'
+        );
+    }
+
+    // 파티박스 320 본체 이미지
+    if (equipmentStr.includes('파티박스 320')) {
+        equipmentImageUrls.push(
+            'https://haewoo-talk-auto.onrender.com/images/partybox320.jpg'
+        );
+    }
+
+    // 기타 장비 이미지
     if (equipmentStr.includes('스탠바이미 GO')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/standbymego.jpg');
     if (equipmentStr.includes('스탠바이미2')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/standbyme2.jpg');
-    if (equipmentStr.includes('파티박스 320')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/partybox320.jpg');
     if (equipmentStr.includes('CP1500')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/cp1500.jpg');
-    //if (equipmentStr.includes('아마란')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/amaran300c.jpg');
     if (equipmentStr.includes('온더고')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/onthego.jpg');
     if (equipmentStr.includes('어벤저')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/avenger.jpg');
     if (equipmentStr.includes('브리츠')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/britz.jpg');
-    //if (equipmentStr.includes('프리스타일')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/freestyle.jpg');
-    //if (equipmentStr.includes('E6')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/e6.jpg');
-    //if (equipmentStr.includes('HF65LA')) equipmentImageUrls.push('https://haewoo-talk-auto.onrender.com/images/hf65la.jpg');
     // =========================================================
 
     const config = await Config.findOne();

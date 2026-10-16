@@ -558,7 +558,7 @@ async function sendTalkMessage(task) {
     const equipmentImageUrls = [];
 
     // 파티박스 전용 삼각대 이미지
-    if (equipmentStr.includes('파티박스 전용 삼각대')) {
+    if (accessories.some(a => a.includes('파티박스 전용 삼각대'))) {
         equipmentImageUrls.push(
             'https://haewoo-talk-auto.onrender.com/images/only320.jpg'
         );
